@@ -104,10 +104,13 @@ coda_vfsopstats_init(void)
 	return 0;
 }
 
+static int coda_mount_type;
+
 int
-coda_init(struct vfsconf * vfsconf)
+coda_init(struct vfsconf * vfsp)
 {
     ENTRY;
+    coda_mount_type = vfsp->vfc_typenum; 
     LEAVE;
     return 0;
 }
@@ -127,6 +130,8 @@ coda_mount(vfsp, path, data, ndp, td)
 {
     struct vnode *dvp;
     struct cnode *cp;
+    char root_path[MNAMELEN];
+    size_t len;
     dev_t dev;
     struct coda_mntinfo *mi;
     struct vnode *rootvp;
@@ -145,7 +150,13 @@ coda_mount(vfsp, path, data, ndp, td)
         LEAVE;
 	return(EBUSY);
     }
-    
+
+    /* Get mount point name */
+    error = copyinstr(path, root_path, MNAMELEN-1, &len);
+    if (error)
+	    return(error);
+    memset(root_path + len, '\0', MNAMELEN - len);
+
     /* Validate mount device.  Similar to getmdev(). */
     NDINIT(ndp, LOOKUP, FOLLOW, UIO_USERSPACE, data, td);
     error = namei(ndp);
@@ -217,7 +228,7 @@ coda_mount(vfsp, path, data, ndp, td)
         LEAVE;
         return ENOMEM;
     }
-    SET_CNODE_NAME("/coda");
+    SET_CNODE_NAME(root_path);
     rootvp = CTOV(cp);
     rootvp->v_vflag |= VV_ROOT;
 	
@@ -250,10 +261,12 @@ coda_mount(vfsp, path, data, ndp, td)
     /* Checked UFS. iosize is set as 8192 */
     vfsp->mnt_stat.f_iosize = 8192;
 
+    memcpy(vfsp->mnt_stat.f_mntonname, root_path, MNAMELEN);
+    memcpy(vfsp->mnt_stat.f_mntfromname, "CODA", MNAMELEN);
+
     /* error is currently guaranteed to be zero, but in case some
        code changes... */
-    CODADEBUG(1,
-	     myprintf(("coda_mount returned %d\n",error)););
+    CODADEBUG(1, myprintf(("coda_mount returned %d\n",error)););
     if (error)
 	MARK_INT_FAIL(CODA_MOUNT_STATS);
     else
@@ -478,7 +491,12 @@ coda_nb_statfs(vfsp, sbp, td)
 	return(EINVAL);
     }
     
+#if 0
     bzero(sbp, sizeof(struct statfs));
+#else	
+    sbp->f_type = coda_mount_type;
+    sbp->f_flags = 0;
+#endif
     /* XXX - what to do about f_flags, others? --bnoble */
     /* Below This is what AFS does
     	#define NB_SFS_SIZ 0x895440
@@ -490,17 +508,19 @@ coda_nb_statfs(vfsp, sbp, td)
     sbp->f_blocks = NB_SFS_SIZ;
     sbp->f_bfree = NB_SFS_SIZ;
     sbp->f_bavail = NB_SFS_SIZ;
-    sbp->f_files = NB_SFS_SIZ;
-    sbp->f_ffree = NB_SFS_SIZ;
+    sbp->f_files = 0;
+    sbp->f_ffree = 0;
     if (sbp != &vfsp->mnt_stat)
     {
-        memcpy((caddr_t) & sbp->f_mntonname[0], (caddr_t) vfsp->mnt_stat.f_mntonname, MNAMELEN);
-        memcpy((caddr_t) & sbp->f_mntfromname[0], (caddr_t) vfsp->mnt_stat.f_mntfromname, MNAMELEN);
+        memcpy(sbp->f_mntonname, vfsp->mnt_stat.f_mntonname, MNAMELEN);
+        memcpy(sbp->f_mntfromname, vfsp->mnt_stat.f_mntfromname, MNAMELEN);
     }
     else
     {
+#if 0
 	    snprintf(sbp->f_mntonname, sizeof(sbp->f_mntonname), "/coda");
 	    snprintf(sbp->f_mntfromname, sizeof(sbp->f_mntfromname), "CODA");
+#endif
     }
     sbp->f_type = vfsp->mnt_vfc->vfc_typenum;
     snprintf(sbp->f_fstypename, sizeof(sbp->f_fstypename), "coda");
