@@ -81,6 +81,7 @@ __FBSDID("$FreeBSD: src/sys/coda/coda_vnops.c,v 1.51 2003/09/07 07:43:09 tjr Exp
 #include <coda/coda_pioctl.h>
 #ifdef DARWIN
 #include <coda/coda_vnode_if.h>
+#include <coda/coda_attrlist.h>
 #endif /* DARWIN */
 
 /* 
@@ -131,6 +132,7 @@ struct vnodeopv_entry_desc coda_vnodeop_entries[] = {
     { &vop_access_desc, coda_access },		/* access */
     { &vop_getattr_desc, coda_getattr },	/* getattr */
     { &vop_setattr_desc, coda_setattr },	/* setattr */
+    { &vop_getattrlist_desc, coda_getattrlist },/* getattrlist */
     { &vop_read_desc, coda_read },		/* read */
     { &vop_write_desc, coda_write },		/* write */
     { &vop_ioctl_desc, coda_ioctl },		/* ioctl */

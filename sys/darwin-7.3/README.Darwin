@@ -44,7 +44,7 @@ To do:
             Status: Not initiated.
             
         8. Write support for getattrlist(2)
-           Status: Not initiated
+           Status: Initiated, but nothing more than that.
             
 
 Milestones:

@@ -203,7 +203,7 @@ kern_return_t darwin_coda_start (kmod_info_t * ki, void * d)
     
     coda_ufsops=*ffs_vnodeop_opv_desc.opv_desc_vector_p;
     
-    //coda_debugon();
+    coda_debugon();
     
     printf("Coda kernel extension loaded\n"); 
     thread_funnel_set(kernel_flock, old_funnel_status);

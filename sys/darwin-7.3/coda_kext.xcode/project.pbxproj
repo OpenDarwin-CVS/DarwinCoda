@@ -150,13 +150,14 @@
 //244
 		247142CAFF3F8F9811CA285C = {
 			children = (
+				B417A2F2065AB9D3003A1EDA,
 				B463EB5506452428007ED6B0,
 				B463EB5606452428007ED6B0,
 				B463EB5706452428007ED6B0,
 				B463EB5806452428007ED6B0,
 				B463EB5906452428007ED6B0,
 				B463EB5A06452428007ED6B0,
-				B4ACA633064AE702008C8E37,
+				B463EB5B06452428007ED6B0,
 				B463EB5C06452428007ED6B0,
 			);
 			isa = PBXGroup;
@@ -243,6 +244,7 @@
 				B463EB52064523FB007ED6B0,
 				B4BA99B00645512E00F2D22A,
 				B4672D600647730D005E1DCA,
+				B417A2F3065AB9D3003A1EDA,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -273,6 +275,7 @@
 				B463EB6206452428007ED6B0,
 				B463EB6306452428007ED6B0,
 				B463EB6406452428007ED6B0,
+				B417A2F4065AB9D3003A1EDA,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -325,6 +328,36 @@
 //B42
 //B43
 //B44
+		B417A2F1065AB9D3003A1EDA = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = coda_attrlist.h;
+			path = coda/coda_attrlist.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B417A2F2065AB9D3003A1EDA = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = coda_attrlist.c;
+			path = coda/coda_attrlist.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B417A2F3065AB9D3003A1EDA = {
+			fileRef = B417A2F1065AB9D3003A1EDA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B417A2F4065AB9D3003A1EDA = {
+			fileRef = B417A2F2065AB9D3003A1EDA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		B463EB3B064523FB007ED6B0 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -645,15 +678,6 @@
 			settings = {
 			};
 		};
-		B4ACA633064AE702008C8E37 = {
-			children = (
-				B463EB5B06452428007ED6B0,
-			);
-			isa = PBXGroup;
-			name = "New Group";
-			refType = 4;
-			sourceTree = "<group>";
-		};
 		B4BA99AF0645512E00F2D22A = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -700,8 +724,8 @@
 		B4BD6B1B0643EFCF00697EED = {
 			children = (
 				B4BA99AF0645512E00F2D22A,
-				B4672D5F0647730D005E1DCA,
 				B463EB3B064523FB007ED6B0,
+				B417A2F1065AB9D3003A1EDA,
 				B463EB3C064523FB007ED6B0,
 				B463EB3D064523FB007ED6B0,
 				B463EB3E064523FB007ED6B0,
@@ -711,6 +735,7 @@
 				B463EB42064523FB007ED6B0,
 				B463EB43064523FB007ED6B0,
 				B463EB44064523FB007ED6B0,
+				B4672D5F0647730D005E1DCA,
 				B463EB45064523FB007ED6B0,
 				B463EB46064523FB007ED6B0,
 			);
