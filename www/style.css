@@ -9,7 +9,7 @@ BODY
 		background-color: #ffffff;
 	}
 A:link		 { color: navy }
-A:link:hover	 { color: HighlightText; text-decoration: underline }
+A:link:hover	  { font-weight: bold }
 A:active	{ COLOR: #FF6600; TEXT-DECORATION: underline}
 
 A:visited	 { color: GrayText; text-decoration: none }
@@ -71,3 +71,5 @@ CODE
 -->
 </style>
 
+
+#id { }
