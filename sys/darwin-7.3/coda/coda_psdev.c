@@ -243,9 +243,9 @@ vc_nb_close (dev, flag, mode, td)
 
     if (outstanding_upcalls) {
 #ifdef	CODA_VERBOSE
-	printf("presleep: outstanding_upcalls = %d\n", outstanding_upcalls);
+	myprintf(("presleep: outstanding_upcalls = %d\n", outstanding_upcalls));
     	(void) tsleep(&outstanding_upcalls, coda_call_sleep, "coda_umount", 0);
-	printf("postsleep: outstanding_upcalls = %d\n", outstanding_upcalls);
+	myprintf(("postsleep: outstanding_upcalls = %d\n", outstanding_upcalls));
 #else
     	(void) tsleep(&outstanding_upcalls, coda_call_sleep, "coda_umount", 0);
 #endif
@@ -664,7 +664,7 @@ coda_call(mntinfo, inSize, outSize, buffer)
 			break;
 		else if (error == EWOULDBLOCK) {
 #ifdef	CODA_VERBOSE
-			printf("coda_call: tsleep TIMEOUT %d sec\n", 2+2*i);
+			myprintf(("coda_call: tsleep TIMEOUT %d sec\n", 2+2*i));
 #endif
 		}
 		else {
@@ -673,8 +673,7 @@ coda_call(mntinfo, inSize, outSize, buffer)
 			if (SIGSETEQ(td->td_siglist, tempset)) {
 				SIGADDSET(td->td_sigmask, SIGIO);
 #ifdef	CODA_VERBOSE
-				printf("coda_call: tsleep returns %d SIGIO, cnt %d\n",
-				       error, i);
+				myprintf(("coda_call: tsleep returns %d SIGIO, cnt %d\n", error, i));
 #endif
 			} else {
 				SIGDELSET(tempset, SIGIO);
@@ -682,29 +681,23 @@ coda_call(mntinfo, inSize, outSize, buffer)
 				if (SIGSETEQ(td->td_siglist, tempset)) {
 					SIGADDSET(td->td_sigmask, SIGALRM);
 #ifdef	CODA_VERBOSE
-					printf("coda_call: tsleep returns %d SIGALRM, cnt %d\n",
-					       error, i);
+					myprintf(("coda_call: tsleep returns %d SIGALRM, cnt %d\n", error, i));
 #endif
 				}
 				else {
 #ifdef	CODA_VERBOSE
-					printf("coda_call: tsleep returns %d, cnt %d\n",
-					       error, i);
+					myprintf(("coda_call: tsleep returns %d, cnt %d\n", error, i));
 #endif
 
 #if notyet
 					tempset = td->td_siglist;
 					SIGSETNAND(tempset, td->td_sigmask);
-					printf("coda_call: siglist = %p, sigmask = %p, mask %p\n",
-					       td->td_siglist, td->td_sigmask,
-					       tempset);
+					myprintf("coda_call: siglist = %p, sigmask = %p, mask %p\n", td->td_siglist, td->td_sigmask, tempset));
 					break;
 					SIGSETOR(td->td_sigmask, td->td_siglist);
 					tempset = td->td_siglist;
 					SIGSETNAND(tempset, td->td_sigmask);
-					printf("coda_call: new mask, siglist = %p, sigmask = %p, mask %p\n",
-					       td->td_siglist, td->td_sigmask,
-					       tempset);
+					myprintf(("coda_call: new mask, siglist = %p, sigmask = %p, mask %p\n", td->td_siglist, td->td_sigmask, tempset));
 #endif
 				}
 			}
