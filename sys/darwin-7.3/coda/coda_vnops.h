@@ -80,6 +80,7 @@ int coda_vop_nop(void *);
 int coda_fbsd_getpages	(void *);
 int coda_pathconf(void *);
 int coda_pagein(void *);
+int coda_advlock(void *);
 
 int coda_rdwr(struct vnode *vp, struct uio *uiop, enum uio_rw rw,
     int ioflag, struct ucred *cred, THREAD *td);
