@@ -80,11 +80,17 @@ __FBSDID("$FreeBSD: src/sys/coda/coda_namecache.c,v 1.20 2003/09/07 07:43:09 tjr
 #include <sys/errno.h>
 #include <sys/lock.h>
 #include <sys/malloc.h>
+#ifndef DARWIN
 #include <sys/mutex.h>
+#endif /* !DARWIN */
 #include <sys/ucred.h>
 
+#ifdef DARWIN
+#include <sys/vm.h>
+#else
 #include <vm/vm.h>
 #include <vm/vm_object.h>
+#endif /* !DARWIN */
 
 #include <coda/coda.h>
 #include <coda/cnode.h>
@@ -276,7 +282,12 @@ coda_nc_enter(dcp, name, namelen, cred, cp)
     cncp->dcp = dcp;
     cncp->cp = cp;
     cncp->namelen = namelen;
+#ifdef DARWIN
+    crhold(cred);
+    cncp->cred=cred;
+#else
     cncp->cred = crhold(cred);
+#endif /* !DARWIN */
     
     bcopy(name, cncp->name, (unsigned)namelen);
     
