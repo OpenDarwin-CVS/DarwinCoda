@@ -835,7 +835,10 @@ coda_getattr(v)
 	CODADEBUG(CODA_GETATTR, if (!(codadebug & ~CODA_GETATTR))
 		 print_vattr(vap);	);
 	
-    {	int size = vap->va_size;
+    {	
+#ifndef vnode_pager_setsize
+        int size = vap->va_size;
+#endif
     	struct vnode *convp = cp->c_ovp;
 	if (convp != (struct vnode *)0) {
 	    vnode_pager_setsize(convp, size);
@@ -1107,7 +1110,7 @@ coda_inactive(v)
 
     ENTRY;
     ASSURE_LOCKED(vp);
-    myprintf(("coda_inactive vp=%p=%s\n",vp,coda_vp_name(vp)));
+   // myprintf(("coda_inactive vp=%p=%s\n",vp,coda_vp_name(vp)));
     /* We don't need to send inactive to venus - DCS */
     MARK_ENTRY(CODA_INACTIVE_STATS);
 
