@@ -74,7 +74,7 @@ MALLOC_DECLARE(M_CODA);
 do {                                                                      \
     MALLOC(ptr, cast, size, M_FREE, M_NOWAIT);            \
     if (ptr == 0) {                                                       \
-        panic("kernel malloc returns 0 at %s:%d\n", __FILE__, __LINE__);  \
+        printf("kernel malloc returns 0 at %s:%d\n", __FILE__, __LINE__);  \
     }                                                                     \
 } while (0)
 
