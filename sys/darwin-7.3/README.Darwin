@@ -6,7 +6,7 @@ To do:
 	   Status: Done.
 
 	1. Import everything into CVS.
-	   Status: Not initiated
+	   Status: Done
 
 	2. Change the "struct thread" construct to a execenv_t type that may be used on both BSD
 	   and Darwin. In teality, Darwin uses "struct proc *" as a handle to the execution
