@@ -18,18 +18,20 @@
 				GCC_ENABLE_PASCAL_STRINGS = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREFIX_HEADER = coda/bsdglue.h;
+				GCC_PREPROCESSOR_DEFINITIONS = DARWIN;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
-				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = NO;
 				GCC_WARN_ALLOW_INCOMPLETE_PROTOCOL = NO;
 				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
 				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
 				GCC_WARN_MISSING_PARENTHESES = YES;
 				GCC_WARN_PEDANTIC = NO;
-				GCC_WARN_SHADOW = YES;
-				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_SHADOW = NO;
+				GCC_WARN_SIGN_COMPARE = NO;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
-				GCC_WARN_UNUSED_PARAMETER = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
+				GCC_WARN_UNUSED_PARAMETER = NO;
+				GCC_WARN_UNUSED_VARIABLE = NO;
 				OPTIMIZATION_CFLAGS = "-O0";
 				PREBINDING = NO;
 				ZERO_LINK = YES;
@@ -43,6 +45,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = DARWIN;
 				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
@@ -75,6 +78,7 @@
 		};
 		089C166AFE841209C02AAC07 = {
 			children = (
+				B463EB6706452453007ED6B0,
 				B4BD6B1B0643EFCF00697EED,
 				247142CAFF3F8F9811CA285C,
 				089C167CFE841241C02AAC07,
@@ -141,24 +145,6 @@
 //192
 //193
 //194
-//1A0
-//1A1
-//1A2
-//1A3
-//1A4
-		1A224C3CFF42312311CA2CB7 = {
-			fileEncoding = 4;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			path = darwin_coda.c;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-//1A0
-//1A1
-//1A2
-//1A3
-//1A4
 //240
 //241
 //242
@@ -166,15 +152,14 @@
 //244
 		247142CAFF3F8F9811CA285C = {
 			children = (
-				B4BD6AFF0643EFC200697EED,
-				B4BD6B000643EFC200697EED,
-				B4BD6B010643EFC200697EED,
-				B4BD6B020643EFC200697EED,
-				B4BD6B030643EFC200697EED,
-				B4BD6B040643EFC200697EED,
-				B4BD6B050643EFC200697EED,
-				B4BD6B060643EFC200697EED,
-				1A224C3CFF42312311CA2CB7,
+				B463EB5506452428007ED6B0,
+				B463EB5606452428007ED6B0,
+				B463EB5706452428007ED6B0,
+				B463EB5806452428007ED6B0,
+				B463EB5906452428007ED6B0,
+				B463EB5A06452428007ED6B0,
+				B463EB5B06452428007ED6B0,
+				B463EB5C06452428007ED6B0,
 			);
 			isa = PBXGroup;
 			name = Source;
@@ -206,9 +191,10 @@
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = "";
 				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
 				GCC_WARN_UNKNOWN_PRAGMAS = NO;
-				HEADER_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = ". /usr/include/miscfs/specfs";
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				LIBRARY_SEARCH_PATHS = "";
@@ -245,18 +231,20 @@
 		32A4FEBA0562C75700D090E7 = {
 			buildActionMask = 2147483647;
 			files = (
-				B4BD6B440643EFFC00697EED,
-				B4BD6B450643EFFC00697EED,
-				B4BD6B460643EFFC00697EED,
-				B4BD6B470643EFFC00697EED,
-				B4BD6B480643EFFC00697EED,
-				B4BD6B490643EFFC00697EED,
-				B4BD6B4A0643EFFC00697EED,
-				B4BD6B4B0643EFFC00697EED,
-				B4BD6B4C0643EFFC00697EED,
-				B4BD6B4D0643EFFC00697EED,
-				B4BD6B4E0643EFFC00697EED,
-				B4BD6B4F0643EFFC00697EED,
+				B463EB47064523FB007ED6B0,
+				B463EB48064523FB007ED6B0,
+				B463EB49064523FB007ED6B0,
+				B463EB4A064523FB007ED6B0,
+				B463EB4B064523FB007ED6B0,
+				B463EB4C064523FB007ED6B0,
+				B463EB4D064523FB007ED6B0,
+				B463EB4E064523FB007ED6B0,
+				B463EB4F064523FB007ED6B0,
+				B463EB50064523FB007ED6B0,
+				B463EB51064523FB007ED6B0,
+				B463EB52064523FB007ED6B0,
+				B4BA99B00645512E00F2D22A,
+				B4672D600647730D005E1DCA,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -282,26 +270,16 @@
 		32A4FEBD0562C75700D090E7 = {
 			buildActionMask = 2147483647;
 			files = (
-				32A4FEBE0562C75700D090E7,
-				B4BD6B070643EFC200697EED,
-				B4BD6B080643EFC200697EED,
-				B4BD6B090643EFC200697EED,
-				B4BD6B0A0643EFC200697EED,
-				B4BD6B0B0643EFC200697EED,
-				B4BD6B0C0643EFC200697EED,
-				B4BD6B0D0643EFC200697EED,
-				B4BD6B0E0643EFC200697EED,
+				B463EB5E06452428007ED6B0,
+				B463EB5F06452428007ED6B0,
+				B463EB6006452428007ED6B0,
+				B463EB6106452428007ED6B0,
+				B463EB6206452428007ED6B0,
+				B463EB6306452428007ED6B0,
+				B463EB6406452428007ED6B0,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
-		};
-		32A4FEBE0562C75700D090E7 = {
-			fileRef = 1A224C3CFF42312311CA2CB7;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
 		};
 		32A4FEBF0562C75700D090E7 = {
 			buildActionMask = 2147483647;
@@ -351,6 +329,341 @@
 //B42
 //B43
 //B44
+		B463EB3B064523FB007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = cnode.h;
+			path = coda/cnode.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB3C064523FB007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = coda_io.h;
+			path = coda/coda_io.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB3D064523FB007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = coda_kernel.h;
+			path = coda/coda_kernel.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB3E064523FB007ED6B0 = {
+			explicitFileType = sourcecode.c.h;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = coda_namecache.h;
+			path = coda/coda_namecache.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB3F064523FB007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = coda_opstats.h;
+			path = coda/coda_opstats.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB40064523FB007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = coda_pioctl.h;
+			path = coda/coda_pioctl.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB41064523FB007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = coda_psdev.h;
+			path = coda/coda_psdev.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB42064523FB007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = coda_subr.h;
+			path = coda/coda_subr.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB43064523FB007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = coda_venus.h;
+			path = coda/coda_venus.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB44064523FB007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = coda_vfsops.h;
+			path = coda/coda_vfsops.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB45064523FB007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = coda_vnops.h;
+			path = coda/coda_vnops.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB46064523FB007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = coda.h;
+			path = coda/coda.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB47064523FB007ED6B0 = {
+			fileRef = B463EB3B064523FB007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB48064523FB007ED6B0 = {
+			fileRef = B463EB3C064523FB007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB49064523FB007ED6B0 = {
+			fileRef = B463EB3D064523FB007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB4A064523FB007ED6B0 = {
+			fileRef = B463EB3E064523FB007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		B463EB4B064523FB007ED6B0 = {
+			fileRef = B463EB3F064523FB007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB4C064523FB007ED6B0 = {
+			fileRef = B463EB40064523FB007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB4D064523FB007ED6B0 = {
+			fileRef = B463EB41064523FB007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB4E064523FB007ED6B0 = {
+			fileRef = B463EB42064523FB007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB4F064523FB007ED6B0 = {
+			fileRef = B463EB43064523FB007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB50064523FB007ED6B0 = {
+			fileRef = B463EB44064523FB007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB51064523FB007ED6B0 = {
+			fileRef = B463EB45064523FB007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB52064523FB007ED6B0 = {
+			fileRef = B463EB46064523FB007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB5506452428007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = coda_fbsd.c;
+			path = coda/coda_fbsd.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB5606452428007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = coda_namecache.c;
+			path = coda/coda_namecache.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB5706452428007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = coda_psdev.c;
+			path = coda/coda_psdev.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB5806452428007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = coda_subr.c;
+			path = coda/coda_subr.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB5906452428007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = coda_venus.c;
+			path = coda/coda_venus.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB5A06452428007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = coda_vfsops.c;
+			path = coda/coda_vfsops.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB5B06452428007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = coda_vnops.c;
+			path = coda/coda_vnops.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB5C06452428007ED6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = darwin_coda.c;
+			path = coda/darwin_coda.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B463EB5E06452428007ED6B0 = {
+			fileRef = B463EB5606452428007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB5F06452428007ED6B0 = {
+			fileRef = B463EB5706452428007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB6006452428007ED6B0 = {
+			fileRef = B463EB5806452428007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB6106452428007ED6B0 = {
+			fileRef = B463EB5906452428007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB6206452428007ED6B0 = {
+			fileRef = B463EB5A06452428007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB6306452428007ED6B0 = {
+			fileRef = B463EB5B06452428007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB6406452428007ED6B0 = {
+			fileRef = B463EB5C06452428007ED6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B463EB6706452453007ED6B0 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = Kernel.framework;
+			path = /System/Library/Frameworks/Kernel.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		B4672D5F0647730D005E1DCA = {
+			explicitFileType = sourcecode.c.h;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = coda_vnode_if.h;
+			path = coda/coda_vnode_if.h;
+			refType = 4;
+			sourceTree = "<group>";
+			usesTabs = 1;
+		};
+		B4672D600647730D005E1DCA = {
+			fileRef = B4672D5F0647730D005E1DCA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B4BA99AF0645512E00F2D22A = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = bsdglue.h;
+			path = coda/bsdglue.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		B4BA99B00645512E00F2D22A = {
+			fileRef = B4BA99AF0645512E00F2D22A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		B4BD6ABB0643EF1B00697EED = {
 			fileEncoding = 7;
 			isa = PBXFileReference;
@@ -407,305 +720,27 @@
 			settings = {
 			};
 		};
-		B4BD6AFF0643EFC200697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			path = coda_fbsd.c;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B000643EFC200697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			path = coda_namecache.c;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B010643EFC200697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			path = coda_psdev.c;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B020643EFC200697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			path = coda_subr.c;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B030643EFC200697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			path = coda_venus.c;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B040643EFC200697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			path = coda_vfsops.c;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B050643EFC200697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			path = coda_vnops.c;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B060643EFC200697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			path = darwin_coda.c;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B070643EFC200697EED = {
-			fileRef = B4BD6AFF0643EFC200697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B080643EFC200697EED = {
-			fileRef = B4BD6B000643EFC200697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B090643EFC200697EED = {
-			fileRef = B4BD6B010643EFC200697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B0A0643EFC200697EED = {
-			fileRef = B4BD6B020643EFC200697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B0B0643EFC200697EED = {
-			fileRef = B4BD6B030643EFC200697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B0C0643EFC200697EED = {
-			fileRef = B4BD6B040643EFC200697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B0D0643EFC200697EED = {
-			fileRef = B4BD6B050643EFC200697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B0E0643EFC200697EED = {
-			fileRef = B4BD6B060643EFC200697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		B4BD6B1B0643EFCF00697EED = {
 			children = (
-				B4BD6B380643EFFB00697EED,
-				B4BD6B390643EFFB00697EED,
-				B4BD6B3A0643EFFB00697EED,
-				B4BD6B3B0643EFFB00697EED,
-				B4BD6B3C0643EFFB00697EED,
-				B4BD6B3D0643EFFB00697EED,
-				B4BD6B3E0643EFFB00697EED,
-				B4BD6B3F0643EFFB00697EED,
-				B4BD6B400643EFFB00697EED,
-				B4BD6B410643EFFC00697EED,
-				B4BD6B420643EFFC00697EED,
-				B4BD6B430643EFFC00697EED,
+				B4BA99AF0645512E00F2D22A,
+				B4672D5F0647730D005E1DCA,
+				B463EB3B064523FB007ED6B0,
+				B463EB3C064523FB007ED6B0,
+				B463EB3D064523FB007ED6B0,
+				B463EB3E064523FB007ED6B0,
+				B463EB3F064523FB007ED6B0,
+				B463EB40064523FB007ED6B0,
+				B463EB41064523FB007ED6B0,
+				B463EB42064523FB007ED6B0,
+				B463EB43064523FB007ED6B0,
+				B463EB44064523FB007ED6B0,
+				B463EB45064523FB007ED6B0,
+				B463EB46064523FB007ED6B0,
 			);
 			isa = PBXGroup;
 			name = Headers;
 			refType = 4;
 			sourceTree = "<group>";
-		};
-		B4BD6B380643EFFB00697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			path = cnode.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B390643EFFB00697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			path = coda_io.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B3A0643EFFB00697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			path = coda_kernel.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B3B0643EFFB00697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			path = coda_namecache.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B3C0643EFFB00697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			path = coda_opstats.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B3D0643EFFB00697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			path = coda_pioctl.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B3E0643EFFB00697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			path = coda_psdev.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B3F0643EFFB00697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			path = coda_subr.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B400643EFFB00697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			path = coda_venus.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B410643EFFC00697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			path = coda_vfsops.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B420643EFFC00697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			path = coda_vnops.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B430643EFFC00697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			path = coda.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6B440643EFFC00697EED = {
-			fileRef = B4BD6B380643EFFB00697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B450643EFFC00697EED = {
-			fileRef = B4BD6B390643EFFB00697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B460643EFFC00697EED = {
-			fileRef = B4BD6B3A0643EFFB00697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B470643EFFC00697EED = {
-			fileRef = B4BD6B3B0643EFFB00697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B480643EFFC00697EED = {
-			fileRef = B4BD6B3C0643EFFB00697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B490643EFFC00697EED = {
-			fileRef = B4BD6B3D0643EFFB00697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B4A0643EFFC00697EED = {
-			fileRef = B4BD6B3E0643EFFB00697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B4B0643EFFC00697EED = {
-			fileRef = B4BD6B3F0643EFFB00697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B4C0643EFFC00697EED = {
-			fileRef = B4BD6B400643EFFB00697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B4D0643EFFC00697EED = {
-			fileRef = B4BD6B410643EFFC00697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B4E0643EFFC00697EED = {
-			fileRef = B4BD6B420643EFFC00697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6B4F0643EFFC00697EED = {
-			fileRef = B4BD6B430643EFFC00697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 	};
 	rootObject = 089C1669FE841209C02AAC07;
