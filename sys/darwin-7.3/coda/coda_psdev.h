@@ -36,4 +36,8 @@ int vc_nb_close (dev_t dev, int flag, int mode, THREAD *p);
 int vc_nb_read(dev_t dev, struct uio *uiop, int flag);
 int vc_nb_write(dev_t dev, struct uio *uiop, int flag);
 int vc_nb_ioctl(dev_t dev, u_long cmd, caddr_t addr, int flag, THREAD *p);
+#ifndef DARWIN
 int vc_nb_poll(dev_t dev, int events, THREAD *p);
+#else /* DARWIN */
+int vc_nb_select(dev_t dev, int flag, void *wql, struct proc *p);
+#endif /* DARWIN */
