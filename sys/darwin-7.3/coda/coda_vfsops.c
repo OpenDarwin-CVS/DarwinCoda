@@ -104,6 +104,14 @@ coda_vfsopstats_init(void)
 	return 0;
 }
 
+int
+coda_init(struct vfsconf * vfsconf)
+{
+    ENTRY;
+    LEAVE;
+    return 0;
+}
+
 /*
  * cfs mount vfsop
  * Set up mount info record and attach it to vfs struct.
@@ -331,7 +339,7 @@ coda_root(vfsp, vpp)
 	    { /* Found valid root. */
 		*vpp = mi->mi_rootvp;
 		/* On Mach, this is vref.  On NetBSD, VOP_LOCK */
-#if	1
+#ifndef USE_VGET
                 if(VOP_ISLOCKED(*vpp))
                 {
                     myprintf(("Avoiding locking the root against myself on line %d\n",__LINE__));
@@ -362,7 +370,7 @@ coda_root(vfsp, vpp)
 	coda_save(VTOC(mi->mi_rootvp));
 
 	*vpp = mi->mi_rootvp;
-#if	1
+#ifndef USE_VGET
         if(VOP_ISLOCKED(*vpp))
         {
             myprintf(("Avoiding locking the root against myself on line %d\n",__LINE__));
@@ -372,7 +380,7 @@ coda_root(vfsp, vpp)
             vref(*vpp);
             vn_lock(*vpp, LK_EXCLUSIVE, td);
         }
-     #else
+#else
 	vget(*vpp, LK_EXCLUSIVE, td);
 #endif
 
@@ -389,7 +397,7 @@ coda_root(vfsp, vpp)
 	 * will fail.
 	 */
 	*vpp = mi->mi_rootvp;
-#if	1
+#ifndef USE_VGET
         if(VOP_ISLOCKED(*vpp))
         {
             myprintf(("Avoiding locking the root against myself on line %d\n",__LINE__));
