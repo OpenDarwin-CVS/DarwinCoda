@@ -78,18 +78,21 @@ __FBSDID("$FreeBSD: src/sys/coda/coda_venus.c,v 1.18 2003/09/07 07:43:09 tjr Exp
     if (Osize > name ## _size)				\
     	name ## _size = Osize;				\
     CODA_ALLOC(inp, struct coda_in_hdr *, name ## _size);\
+    if(inp==0) return ENOMEM; \
     outp = (struct name ## _out *) inp
 
 #define ALLOC(name)					\
     if (Osize > name ## _size)				\
     	name ## _size = Osize;				\
     CODA_ALLOC(inp, struct name ## _in *, name ## _size);\
+        if(inp==0) return ENOMEM; \
     outp = (struct name ## _out *) inp
 
 #define ALLOC_NO_OUT(name)				\
     if (Osize > name ## _size)				\
     	name ## _size = Osize;				\
     CODA_ALLOC(inp, struct name ## _in *, name ## _size);\
+    if(inp==0) return ENOMEM; \
     outp = (struct coda_out_hdr *) inp
 
 #define STRCPY(struc, name, len) \
@@ -390,9 +393,10 @@ venus_readlink(void *mdp, CodaFid *fid,
     Osize += CODA_MAXPATHLEN;
     error = coda_call(mdp, Isize, &Osize, (char *)inp);
     if (!error) {
-	    CODA_ALLOC(*str, char *, outp->count);
-	    *len = outp->count;
-	    bcopy((char *)outp + (long)outp->data, *str, *len);
+        CODA_ALLOC(*str, char *, outp->count);
+        if (*str == 0) return ENOMEM;
+        *len = outp->count;
+        bcopy((char *)outp + (long)outp->data, *str, *len);
     }
 
     CODA_FREE(inp, coda_readlink_size);
