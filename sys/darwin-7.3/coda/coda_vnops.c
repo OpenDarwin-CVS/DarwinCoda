@@ -1249,31 +1249,6 @@ coda_lookup(v)
         LEAVE;
         return ENOTDIR;
     }
-/* #define HIDE_ROOT_DOTFILES    */
-#ifdef HIDE_ROOT_DOTFILES    
-    /*  Kludge ALERT
-        At the CODA root, only entries matching a DNS name are supposed to exist. Thus if the Finder
-        looks for a .hidden file, we refuse to give it back, thus avoiding a venus bug that causes it to die.
-        This code explicitly hides all entries starting with ., except . and .. and those starting with ._
-    */ 
-    if ( (dvp->v_vflag & VV_ROOT) && 
-         (cnp->cn_nameiop != CREATE) &&
-         (cnp->cn_nameiop != RENAME) &&
-         *nm == '.' &&
-         (nm[1] != '\0') && 
-         (nm[1] != '_') &&
-         !(nm[1] == '.' && nm[2] == '\0')
-          
-       )
-    {
-      
-        myprintf(("Hiding entry %s from venus access\n",nm));
-        *vpp = (struct vnode *)0;
-        error = ENOENT;
-        goto exit;
-    }
-#endif
-    
     
     if(nm)
         CODADEBUG(CODA_LOOKUP, myprintf(("\n\nLooking up entry %s\n",nm)););
@@ -1396,20 +1371,27 @@ coda_lookup(v)
 	     * The parent is unlocked.  As long as there is a child,
 	     * lock it without bothering to check anything else. 
 	     */
-            if(!error && (cnp->cn_flags & LOCKLEAF)) /* I.e. in this case, the error isn't EJUSTRETURN a.k.a. ENOENT */
+            if(!error && (cnp->cn_flags & LOCKLEAF) ) /* I.e. in this case, the error isn't EJUSTRETURN a.k.a. ENOENT */
             {
-                if (*vpp) 
+                if (*vpp && !coda_islockedbyme(*vpp,0)) 
                 {
-                    myprintf(("CODA_LOOKUP: LOCKING LEAF, error=%d\n",error));
-                    if (coda_lockdebug) 
-                    {
-                        myprintf(("Will attempt lock on %p from %s line %d\n", *vpp  ,__func__, __LINE__));
-                    }
-                    if (error = LOCK_LEAF)
-                    {
-                        myprintf(("coda_lookup: "));
-                        panic("unlocked parent but couldn't lock child");
-                    }
+		    if(coda_islockedbyme(*vpp,0))
+		    {
+			myprintf(("WARNING: Avoiding leaf lock against myself (1)\n"));
+		    }
+		    else
+		    {
+			myprintf(("CODA_LOOKUP: LOCKING LEAF, error=%d\n",error));
+			if (coda_lockdebug) 
+			{
+			    myprintf(("Will attempt lock on %p from %s line %d\n", *vpp  ,__func__, __LINE__));
+			}
+			if (error = LOCK_LEAF)
+			{
+			    myprintf(("coda_lookup: "));
+			    panic("unlocked parent but couldn't lock child");
+			}
+		    }
                 }
             } 
             else 
@@ -1426,15 +1408,22 @@ coda_lookup(v)
                 (cnp->cn_flags & LOCKLEAF)
                ) 
             {
-		/* Different, go ahead and lock the leaf. */
-                if (coda_lockdebug) 
-                {
-                    myprintf(("Locking leaf on %p from %s line %d\n", *vpp, __func__, __LINE__));
-                }
-                if ((error = LOCK_LEAF)) 
-                {
-		    myprintf(("coda_lookup: "));
-		    panic("locked parent but couldn't lock child");
+		    if(coda_islockedbyme(*vpp,0))
+		    {
+			myprintf(("WARNING: Avoiding leaf lock against myself (2)\n"));
+		    }
+		    else
+		    {
+			/* Different, go ahead and lock the leaf. */
+			if (coda_lockdebug) 
+			{
+			    myprintf(("Locking leaf on %p from %s line %d\n", *vpp, __func__, __LINE__));
+			}
+			if ((error = LOCK_LEAF)) 
+			{
+			    myprintf(("coda_lookup: "));
+			    panic("locked parent but couldn't lock child");
+			}
 		}
 	    }
 	}
