@@ -41,7 +41,9 @@
 #ifndef _CODA_HEADER_
 #define _CODA_HEADER_
 
+#ifndef DARWIN
 #include "opt_coda.h"	/* for COMPAT_CODA_5 option */
+#endif /* !DARWIN */
 
 /* Catch new _KERNEL defn for NetBSD */
 #ifdef __NetBSD__
