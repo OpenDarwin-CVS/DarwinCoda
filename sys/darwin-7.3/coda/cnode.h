@@ -229,5 +229,14 @@ extern struct mount *devtomp(dev_t dev);
 /* sigh */
 #define CODA_RDWR ((u_long) 31)
 
+/* Harness for checking locking rules */
+extern void 
+coda_assure_lock(struct vnode *vp, int locktype, int line, const char *func);
+
+#define ASSURE_LOCKED(v) coda_assure_lock(v,LK_EXCLUSIVE,__LINE__,__func__);
+#define ASSURE_LOCKED_TYPE(v,t) coda_assure_lock(v,t,__LINE__,__func__);
+#define ASSURE_UNLOCKED(v) coda_assure_lock(v,0,__LINE__,__func__);
+
+
 #endif	/* _CNODE_H_ */
 
