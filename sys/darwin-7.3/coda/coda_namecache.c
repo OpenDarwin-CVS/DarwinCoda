@@ -135,11 +135,11 @@ static void coda_nc_remove(struct coda_cache *cncp, enum dc_status dcstat);
 
 int coda_nc_initialized = 0;      /* Initially the cache has not been initialized */
 
-extern int coda_vnop_print_entry;
+int coda_nc_print_entry = 0;
 
-#define ENTRY  if(coda_vnop_print_entry) PRINTENTRY
-#define LEAVE  if(coda_vnop_print_entry) PRINTLEAVE
-
+#define ENTRY  if(coda_nc_print_entry) PRINTENTRY
+#define LEAVE  if(coda_nc_print_entry) PRINTLEAVE
+#define ERRLEAVE(x) if(coda_nc_print_entry) PRINTERRLEAVE(x)
 
 int
 coda_nc_init(void)
