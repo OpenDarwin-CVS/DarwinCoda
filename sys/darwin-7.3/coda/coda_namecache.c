@@ -145,6 +145,7 @@ int
 coda_nc_init(void)
 {
     int i;
+    int error=0;
 
     /* zero the statistics structure */
     
@@ -207,6 +208,7 @@ coda_nc_find(dcp, name, namelen, cred, hash)
 	 */
 	struct coda_cache *cncp;
 	int count = 1;
+	int error=0;
         ENTRY;
 
 	CODA_NC_DEBUG(CODA_NC_FIND, 
@@ -256,6 +258,7 @@ coda_nc_enter(dcp, name, namelen, cred, cp)
 {
     struct coda_cache *cncp;
     int hash;
+    int error=0;
     
     ENTRY;
     if (coda_nc_use == 0)
@@ -344,6 +347,7 @@ coda_nc_lookup(dcp, name, namelen, cred)
 	struct ucred *cred;
 {
 	int hash;
+	int error=0;
 	struct coda_cache *cncp;
         
         ENTRY;
@@ -400,6 +404,7 @@ coda_nc_remove(cncp, dcstat)
 	struct coda_cache *cncp;
 	enum dc_status dcstat;
 {
+    int error=0;
     /* 
      * remove an entry -- vrele(cncp->dcp, cp), crfree(cred),
      * remove it from it's hash chain, and
@@ -447,6 +452,7 @@ coda_nc_zapParentfid(fid, dcstat)
 	 */
 	struct coda_cache *cncp, *ncncp;
 	int i;
+	int error=0;
         
         ENTRY;
 
@@ -495,6 +501,7 @@ coda_nc_zapfid(fid, dcstat)
 	 */
 	struct coda_cache *cncp, *ncncp;
 	int i;
+	int error=0;
 
         ENTRY;
         
@@ -536,6 +543,7 @@ enum dc_status dcstat;
 	   want to zap a file with a specific cred from the kernel.
 	   We'll leave this one unimplemented.
     */
+    int error=0;
     ENTRY;
     if (coda_nc_use == 0)			/* Cache is off */
     {
@@ -563,6 +571,7 @@ int namelen;
     */
     struct coda_cache *cncp;
     int hash;
+    int error=0;
     
     ENTRY;
     
@@ -615,6 +624,7 @@ coda_nc_purge_user(uid, dcstat)
 
 	struct coda_cache *cncp, *ncncp;
 	int hash;
+	int error=0;
         
         ENTRY;
 
@@ -667,6 +677,7 @@ coda_nc_flush(dcstat)
 	 */
 	struct coda_cache *cncp;
 	int i;
+ 	int error=0;
         
         ENTRY;
 
@@ -747,6 +758,7 @@ void
 coda_nc_gather_stats(void)
 {
     int i, max = 0, sum = 0, temp, zeros = 0, ave, n;
+    int error=0;
     
     ENTRY;
     
@@ -796,6 +808,7 @@ coda_nc_resize(hashsize, heapsize, dcstat)
      int hashsize, heapsize;
      enum dc_status dcstat;
 {
+    int error=0;
     ENTRY;
     
     if ((hashsize % 2) || (heapsize % 2)) 
@@ -830,6 +843,7 @@ coda_nc_name(struct cnode *cp)
 {
 	struct coda_cache *cncp, *ncncp;
 	int i;
+	int error=0;
         
         ENTRY;
 
