@@ -30,7 +30,6 @@
  * $FreeBSD: src/sys/coda/coda_namecache.h,v 1.9 2003/09/07 07:43:09 tjr Exp $
  * 
  */
-
 /* 
  * Mach Operating System
  * Copyright (c) 1990 Carnegie-Mellon University
@@ -80,14 +79,24 @@
  * insque and remque assume that the pointers are the first thing
  * in the list node, thus the trickery for lru.
  */
-
-#define CODA_NC_HSHINS(elem, pred)	insque(elem,pred)
+#ifdef DARWIN
+#define CODA_NC_HSHINS(elem, pred)	insque((queue_entry_t)elem,(queue_entry_t)pred)
+#define CODA_NC_HSHREM(elem)		remque((queue_entry_t)elem)
+#else
+#define CODA_NC_HSHINS(elem, pred)	insque(elem, pred)
 #define CODA_NC_HSHREM(elem)		remque(elem)
+#endif /* !DARWIN */
 #define CODA_NC_HSHNUL(elem)		(elem)->hash_next = \
 					(elem)->hash_prev = (elem)
+#ifdef DARWIN
+#define CODA_NC_LRUINS(elem, pred)	insque((queue_entry_t)LRU_PART(elem),(queue_entry_t) LRU_PART(pred))
+#define CODA_NC_LRUREM(elem)		remque((queue_entry_t)LRU_PART(elem));
 
+#else
 #define CODA_NC_LRUINS(elem, pred)	insque(LRU_PART(elem), LRU_PART(pred))
 #define CODA_NC_LRUREM(elem)		remque(LRU_PART(elem));
+#endif /* !DARWIN */
+
 #define CODA_NC_LRUGET(lruhead)		LRU_TOP((lruhead).lru_prev)
 
 #define CODA_NC_VALID(cncp)	(cncp->dcp != (struct cnode *)0)
