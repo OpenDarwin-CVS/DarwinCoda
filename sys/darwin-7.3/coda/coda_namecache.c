@@ -71,7 +71,6 @@
  * 4.	I wonder if this name cache could be replace by the vnode name cache.
  *	The latter has no zapping functions, so probably not.
  */
-
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/sys/coda/coda_namecache.c,v 1.20 2003/09/07 07:43:09 tjr Exp $");
 
@@ -87,6 +86,7 @@ __FBSDID("$FreeBSD: src/sys/coda/coda_namecache.c,v 1.20 2003/09/07 07:43:09 tjr
 
 #ifdef DARWIN
 #include <sys/vm.h>
+#include <kern/queue.h>
 #else
 #include <vm/vm.h>
 #include <vm/vm_object.h>
