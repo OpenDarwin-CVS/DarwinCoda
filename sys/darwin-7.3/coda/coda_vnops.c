@@ -262,8 +262,10 @@ coda_assure_lock(struct vnode *vp, int locktype, int line, const char *func)
     cp=VTOC(vp);
     if(cp)
     {
-//        cp->c_name[31]='\0'; // just in case
-//        myprintf(("LOCK CHECK: vp=%p, name=%s, locktype=%p\n",vp,cp->c_name,locktype));
+#ifdef CNODE_NAME_DEBUG
+        cp->c_name[31]='\0'; // just in case
+#endif
+        myprintf(("LOCK CHECK: vp=%p, name=%s, locktype=%p\n",vp,GET_CNODE_NAME,locktype));
     }
     else
     {
@@ -608,7 +610,8 @@ coda_rdwr(vp, uiop, rw, ioflag, cred, td)
 	    igot_internally = 1;
 	    error = coda_grab_vnode(cp->c_device, cp->c_inode, &cfvp);
 	    if (error) {
-		MARK_INT_FAIL(CODA_RDWR_STATS);
+		MARK_INT_FAIL(CODA_RDWR_STATS);    
+                ASSURE_LOCKED(vp);
         	LEAVE;
 		return(error);
 	    }
@@ -712,7 +715,7 @@ coda_ioctl(v)
     struct PioctlData *iap = (struct PioctlData *)data;
     
     ENTRY;
-
+    ASSURE_UNLOCKED(vp);
     MARK_ENTRY(CODA_IOCTL_STATS);
 
     //CODADEBUG(CODA_IOCTL, myprintf(("in coda_ioctl on %s\n", iap->path));)
@@ -1305,17 +1308,16 @@ coda_lookup(v)
     if (cp) {
 	*vpp = CTOV(cp);
 	vref(*vpp);
-	CODADEBUG(CODA_LOOKUP, 
-		 myprintf(("lookup result %d vpp %p\n",error,*vpp));)
-    } else {
-	
-	/* The name wasn't cached, so we need to contact Venus */
-	error = venus_lookup(vtomi(dvp), &dcp->c_fid, nm, len, cred, THREAD2PROC, &VFid, &vtype);
-	
-	if (error) 
-	{
-	    MARK_INT_FAIL(CODA_LOOKUP_STATS);
+	CODADEBUG(CODA_LOOKUP, myprintf(("lookup result %d vpp %p\n",error,*vpp)););
+	SET_CNODE_NAME(nm);
+        goto exit;
+    } 
+    
+    /* The name wasn't cached, so we need to contact Venus */
+    error = venus_lookup(vtomi(dvp), &dcp->c_fid, nm, len, cred, THREAD2PROC, &VFid, &vtype);
             
+        if(error)
+        {
 	    CODADEBUG(CODA_LOOKUP, myprintf(("lookup error on %s (%s)%d\n",
 					     coda_f2s(&dcp->c_fid), nm, error));)
             if( error == ENOENT || ((cnp->cn_flags & LOCKLEAF) == 0) )
@@ -1343,6 +1345,9 @@ coda_lookup(v)
 		LEAVE;
 		return ENOMEM;
 	    }
+
+	    SET_CNODE_NAME(nm);
+
 	    *vpp = CTOV(cp);
 	    
 	    /* enter the new vnode in the Name Cache only if the top bit isn't set */
@@ -1350,8 +1355,7 @@ coda_lookup(v)
 	    if (!(vtype & CODA_NOCACHE))
 		coda_nc_enter(VTOC(dvp), nm, len, cred, VTOC(*vpp));
 	}
-    }
-
+    
  exit:
     /* 
      * If we are creating, and this was the last name to be looked up,
@@ -1535,6 +1539,8 @@ coda_create(v)
 	    LEAVE;
 	    return ENOMEM;
 	}
+	SET_CNODE_NAME(nm);
+
 	*vpp = CTOV(cp);
 	
 	/* Update va to reflect the new attributes. */
@@ -1878,6 +1884,7 @@ coda_mkdir(v)
 	
 	cp =  make_coda_node(&VFid, dvp->v_mount, va->va_type);
 	if(cp == 0) return ENOMEM;
+	SET_CNODE_NAME(nm);
 	*vpp = CTOV(cp);
 	
 	/* enter the new vnode in the Name Cache */
@@ -2249,12 +2256,14 @@ coda_lock(v)
 /* upcall decl */
 /* locals */
     int rv;
+    struct lock__bsd__ *lkp = &cp->c_lock;
+
 
     ENTRY;
 
     if (coda_lockdebug) 
     {
-	myprintf(("Attempting lock %p at %p on %s vp=%p, cp=%p\n", ap->a_flags, &vp->v_interlock, coda_f2s(&cp->c_fid), vp, cp));
+        myprintf(("coda_lock: Attempting lock of %p (%s) flags %p on %s vp=%p, cp=%p\n", lkp, GET_CNODE_NAME, ap->a_flags, coda_f2s(&cp->c_fid), vp, cp));
     }
 
 #ifndef	DEBUG_LOCKS
@@ -2497,6 +2506,11 @@ make_coda_node(fid, vfsp, type)
     } else {
 	vref(CTOV(cp));
     }
+    
+#ifdef CNODE_NAME_DEBUG
+    if(*cp->c_name == '\0')
+	    SET_CNODE_NAME("No name yet!");
+#endif
 
     return cp;
 }

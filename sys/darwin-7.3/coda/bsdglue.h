@@ -53,6 +53,7 @@ extern int  memcmp(const void *, const void *, size_t);
 #define td_ucred p_ucred
 #define a_td a_p
 #define USE_VGET
+#define CNODE_NAME_DEBUG
 
 #define devsw(x) (&cdevsw[major(dev)])
 //#define VOP_OPEN(x,y,z,w,t) VOP_OPEN(x,y,z,w) - Changes are in the code instead. old redef kept for reference

@@ -97,6 +97,8 @@ coda_alloc(void)
     if (coda_freelist) {
 	cp = coda_freelist;
 	coda_freelist = CNODE_NEXT(cp);
+        bzero(cp, sizeof (struct cnode));
+	SET_CNODE_NAME("Cnode is reused");
 	coda_reuse++;
     }
     else {
@@ -106,9 +108,10 @@ coda_alloc(void)
 	   no external pagers, duh!) */
 #define VNODE_VM_INFO_INIT(vp)         /* MT */
 	VNODE_VM_INFO_INIT(CTOV(cp));
+	bzero(cp, sizeof (struct cnode));
+	SET_CNODE_NAME("Cnode is fresh");
 	coda_new++;
     }
-    bzero(cp, sizeof (struct cnode));
 
     return(cp);
 }
@@ -352,7 +355,7 @@ coda_cacheprint(whoIam)
 	for (hash = 0; hash < CODA_CACHESIZE; hash++) {
 		for (cp = coda_cache[hash]; cp != NULL; cp = CNODE_NEXT(cp)) {
 			if (CTOV(cp)->v_mount == whoIam) {
-				printf("coda_cacheprint: vp %p, cp %p", CTOV(cp), cp);
+				printf("coda_cacheprint: vp %p, cp %p(%s)", CTOV(cp), cp, GET_CNODE_NAME);
 				coda_nc_name(cp);
 				printf("\n");
 				count++;

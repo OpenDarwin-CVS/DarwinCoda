@@ -135,9 +135,19 @@ struct cnode {
     dev_t		 c_device;	/* associated vnode device */
     ino_t		 c_inode;	/* associated vnode inode */
     struct cnode	*c_next;	/* links if on NetBSD machine */
+#ifdef CNODE_NAME_DEBUG
+    char                 c_name[32];    /* Name of entry, for debugging */
+#endif
 };
 #define	VTOC(vp)	((struct cnode *)(vp)->v_data)
 #define	CTOV(cp)	((struct vnode *)((cp)->c_vnode))
+#ifdef CNODE_NAME_DEBUG
+#define SET_CNODE_NAME(x) { strncpy(cp->c_name,x,32); cp->c_name[31]='\0'; }
+#define GET_CNODE_NAME cp->c_name
+#else
+#define CNODE_NAME(x)
+#define GET_CNODE_NAME ""
+#endif
 
 /* flags */
 #define C_VATTR		0x01	/* Validity of vattr in the cnode */

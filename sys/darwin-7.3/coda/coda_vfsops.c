@@ -217,6 +217,7 @@ coda_mount(vfsp, path, data, ndp, td)
         LEAVE;
         return ENOMEM;
     }
+    SET_CNODE_NAME("/coda");
     rootvp = CTOV(cp);
     rootvp->v_vflag |= VV_ROOT;
 	
@@ -232,6 +233,7 @@ coda_mount(vfsp, path, data, ndp, td)
         return ENOMEM;
     }
 
+    SET_CNODE_NAME("/dev/cfs0");
 
     coda_ctlvp = CTOV(cp);
 
