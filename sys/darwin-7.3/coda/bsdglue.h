@@ -69,7 +69,7 @@ extern int  memcmp(const void *, const void *, size_t);
 //#define cdev_t dev_t
 #define dev2udev(x) (x)
 #define VNODEOP_SET(x)
-#define vnode_pager_setsize(x,y) myprintf(("would have called vnode_pager_setsize(%p, %d) at %s in %s\n",x,y,__LINE__,__FILE__));
+#define vnode_pager_setsize(x,y) myprintf(("Would have called vnode_pager_setsize(%p, %d) at %d in %s\n",x,y,__LINE__,__FILE__));
 /* Defining NOTFB31 activates old insqe qnd remque definitions in sys/queue.h */
 #define NOTFB31 (1)
 /* PROC_LOCK seem to be unused in Darwin, there are no signs in the Darwin code that the proc block is

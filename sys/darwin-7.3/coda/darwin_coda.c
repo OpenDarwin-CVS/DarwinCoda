@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Christer Bernerus, 2004. All rights reserved
+ * Copyright (C) Christer BernŽrus, 2004. All rights reserve
  */
 /*
  * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
@@ -69,19 +69,19 @@ dev_t hfsdev( struct mount *mp)
 extern int coda_debug_locks;
 
 #ifdef DEBUG_VFS_LOCKS
-void assert_vop_locked(struct vnode *vp, char *f, char *l)
+void assert_vop_locked(struct vnode *vp, char *f, int l)
 {
     if(coda_debug_locks && vp && (vp->v_type != VCHR) && (vp->v_type != VBAD) && (VOP_ISLOCKED(vp) == 0))
     {
-        printf("Vnode at %p is not locked, though it should: %s(%s)\n",(void *)vp, f, l);
+        printf("Vnode at %p is not locked, though it should: %s(%d)\n",(void *)vp, f, l);
     }
 }
 
-void assert_vop_unlocked(struct vnode *vp, char *f, char *l)
+void assert_vop_unlocked(struct vnode *vp, char *f, int l)
 {
     if(coda_debug_locks && vp && (vp->v_type != VCHR) && (vp->v_type != VBAD) && VOP_ISLOCKED(vp))
     {
-        printf("Vnode at %p is locked, though it should not: %s(%s)\n",(void *)vp, f, l);
+        printf("Vnode at %p is locked, though it should not: %s(%d)\n",(void *)vp, f, l);
     }
 }
 #endif
