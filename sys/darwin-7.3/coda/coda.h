@@ -302,7 +302,8 @@ struct coda_statfs {
 #define CODA_RESOLVE     32
 #define CODA_REINTEGRATE 33
 #define CODA_STATFS	 34
-#define CODA_NCALLS 35
+#define CODA_PRINT	 35
+#define CODA_NCALLS 36
 
 #define DOWNCALL(opcode) (opcode >= CODA_REPLACE && opcode <= CODA_PURGEFID)
 #ifdef DARWIN
@@ -313,7 +314,7 @@ struct coda_statfs {
 #define VC_MAXMSGSIZE      sizeof(union inputArgs)+sizeof(union outputArgs) +\
                             VC_MAXDATASIZE  
 #define PRINTENTRY myprintf(("\nEntered %s, pid=%d, thread=%p\n",__func__,current_proc()->p_pid, current_act()))
-#define PRINTLEAVE myprintf(("Leaving %s, pid=%d, line=%d\n",__func__,current_proc()->p_pid,__LINE__))
+#define PRINTLEAVE myprintf(("Leaving %s, error=%d, pid=%d, line=%d\n",__func__,error,current_proc()->p_pid,__LINE__))
 #define PRINTERRLEAVE(x) myprintf(("Leaving %s with error=%d , pid=%d, line=%d\n",__func__,x,current_proc()->p_pid,__LINE__))
 
 #define CIOC_KERNEL_VERSION _IOWR('c', 10, sizeof (int))
