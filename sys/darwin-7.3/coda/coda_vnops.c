@@ -245,6 +245,7 @@ coda_vnodeopstats_init(void)
 	}
 	return 0;
 }
+#ifdef ASSURE_LOCKS
 void 
 coda_assure_lock(struct vnode *vp, int locktype, int line, const char *func)
 {
@@ -320,6 +321,7 @@ coda_assure_lock(struct vnode *vp, int locktype, int line, const char *func)
         return;
     }
 }
+#endif /* ASSURE_LOCKS */
 		
 /* 
  * coda_open calls Venus to return the device, inode pair of the cache
@@ -520,13 +522,13 @@ coda_read(v)
     void *v;
 {
     struct vop_read_args *ap = v;
-    int rv;
+    int error=0;
 
     ENTRY;
-    rv=coda_rdwr(ap->a_vp, ap->a_uio, UIO_READ,
+    error=coda_rdwr(ap->a_vp, ap->a_uio, UIO_READ,
                  ap->a_ioflag, ap->a_cred, ap->a_uio->uio_td);
     LEAVE;
-    return rv;
+    return error;
     
 }
 
@@ -535,14 +537,14 @@ coda_write(v)
 void *v;
 {
     struct vop_write_args *ap = v;
-    int rv;
+    int error=0;
     
     ENTRY;
     
-    rv=coda_rdwr(ap->a_vp, ap->a_uio, UIO_WRITE,
+    error=coda_rdwr(ap->a_vp, ap->a_uio, UIO_WRITE,
                  ap->a_ioflag, ap->a_cred, ap->a_uio->uio_td);
     LEAVE;
-    return rv;
+    return error;
 }
 
 int
@@ -849,9 +851,7 @@ coda_getattr(v)
 	CODADEBUG(CODA_GETATTR, print_vattr(vap););
 	
     {	
-#ifndef vnode_pager_setsize
         int size = vap->va_size;
-#endif
     	struct vnode *convp = cp->c_ovp;
 	if (convp != (struct vnode *)0) {
 	    vnode_pager_setsize(convp, size);
@@ -1121,6 +1121,7 @@ coda_inactive(v)
     THREAD *td __attribute__((unused)) = CURTHREAD;
 /* upcall decl */
 /* locals */
+    int error=0;
 
     ENTRY;
     ASSURE_LOCKED(vp);
@@ -1130,7 +1131,7 @@ coda_inactive(v)
     if (IS_CTL_VP(vp)) {
 	MARK_INT_SAT(CODA_INACTIVE_STATS);
         ASSURE_UNLOCKED(vp);
-	return 0;
+	return error;
     }
 
     CODADEBUG(CODA_INACTIVE, myprintf(("in inactive, %s, vfsp %p\n",
@@ -1181,7 +1182,7 @@ coda_inactive(v)
     }
 
     MARK_INT_SAT(CODA_INACTIVE_STATS);
-    return(0);
+    return(error);
 }
 
 /*
@@ -2171,7 +2172,7 @@ coda_bmap(v)
 /* upcall decl */
 /* locals */
 
-	int ret = 0;
+	int error = 0;
 	struct cnode *cp;
 
 	ENTRY;
@@ -2180,16 +2181,16 @@ coda_bmap(v)
         	LEAVE;  
 		return EINVAL;
 #ifdef DARWIN
-                ret =  VOP_BMAP(cp->c_ovp, bn, vpp, bnp, ap->a_runp);
+                error =  VOP_BMAP(cp->c_ovp, bn, vpp, bnp, ap->a_runp);
 #else /* !DARWIN */
-		ret =  VOP_BMAP(cp->c_ovp, bn, vpp, bnp, ap->a_runp, ap->a_runb);
+		error =  VOP_BMAP(cp->c_ovp, bn, vpp, bnp, ap->a_runp, ap->a_runb);
 #endif /* !DARWIN */
 #if	0
 		myprintf(("VOP_BMAP(cp->c_ovp %p, bn %p, vpp %p, bnp %lld, ap->a_runp %p, ap->a_runb %p) = %d\n",
-			cp->c_ovp, bn, vpp, bnp, ap->a_runp, ap->a_runb, ret));
+			cp->c_ovp, bn, vpp, bnp, ap->a_runp, ap->a_runb, error));
 #endif
         	LEAVE;
-		return ret;
+		return error;
 	} else {
 #if	0
 		myprintf(/"coda_bmap: no container\n"));
@@ -2209,6 +2210,7 @@ coda_reclaim(v)
     struct cnode *cp = VTOC(vp);
 /* upcall decl */
 /* locals */
+    int error=0;
 
 /*
  * Forced unmount/flush will let vnodes with non zero use be destroyed!
@@ -2238,7 +2240,7 @@ coda_reclaim(v)
     VTOC(vp) = NULL;
     ASSURE_UNLOCKED(vp);
     LEAVE;
-    return (0);
+    return (error);
 }
 
 int
@@ -2252,7 +2254,7 @@ coda_lock(v)
     THREAD *td = ap->a_td;
 /* upcall decl */
 /* locals */
-    int rv;
+    int error;
     struct lock__bsd__ *lkp = &cp->c_lock;
 
 
@@ -2264,13 +2266,13 @@ coda_lock(v)
     }
 
 #ifndef	DEBUG_LOCKS
-    rv=lockmgr(&cp->c_lock, ap->a_flags, &vp->v_interlock, td);
+    error=lockmgr(&cp->c_lock, ap->a_flags, &vp->v_interlock, td);
 #else
-    rv=debuglockmgr(&cp->c_lock, ap->a_flags, &vp->v_interlock, td,
+    error=debuglockmgr(&cp->c_lock, ap->a_flags, &vp->v_interlock, td,
 			 "coda_lock", vp->filename, vp->line);
 #endif
     LEAVE;
-    return rv;
+    return error;
 }
 
 int
@@ -2284,7 +2286,7 @@ void *v;
     THREAD *td = ap->a_td;
     /* upcall decl */
     /* locals */
-    int rv;
+    int error;
     
     ENTRY;
     if (coda_lockdebug) 
@@ -2298,14 +2300,14 @@ void *v;
 	return ENOLCK;
     }
 #ifndef	DEBUG_LOCKS
-    rv=lockmgr(&cp->c_lock, ap->a_flags| LK_RELEASE, &vp->v_interlock, td);
+    error=lockmgr(&cp->c_lock, ap->a_flags| LK_RELEASE, &vp->v_interlock, td);
 #else
-    rv=debuglockmgr(&cp->c_lock, ap->a_flags| LK_RELEASE, &vp->v_interlock, td,
+    error=debuglockmgr(&cp->c_lock, ap->a_flags| LK_RELEASE, &vp->v_interlock, td,
                     "coda_unlock", vp->filename, vp->line);
 #endif
 
     LEAVE;
-    return rv;
+    return error;
 }
 
 int
@@ -2316,12 +2318,12 @@ coda_islocked(v)
     struct vop_islocked_args *ap = v;
     struct cnode *cp = VTOC(ap->a_vp);
     
-    int rv;
+    int error;
     ENTRY;
 
-    rv=lockstatus(&cp->c_lock, ap->a_td);
+    error=lockstatus(&cp->c_lock, ap->a_td);
     LEAVE;
-    return rv;
+    return error;
 }
 
 int
@@ -2334,32 +2336,32 @@ coda_islockedbyme(struct vnode *vp, int locktype)
     struct lock__bsd__ *lkp;
     pid_t pid = td->p_pid;
     
-    int rv;
+    int error;
     ENTRY;
     if(!vp)
     {
         myprintf(("coda_islockedbyme: NOTE VP IS NULL\n"));
         LEAVE;
-        return 0;
+        return error;
     }
     cp = VTOC(vp);
     if(!cp)
     {
         myprintf(("coda_islockedbyme: NOTE CP IS NULL vp=%p\n", vp));
         LEAVE;
-        return 0;
+        return error;
     }
     
     lkp=&cp->c_lock;
     
-    rv=lockstatus(lkp, td);
-    if(rv && pid == lkp->lk_lockholder && lkp->lk_lockthread == self)
+    error=lockstatus(lkp, td);
+    if(error && pid == lkp->lk_lockholder && lkp->lk_lockthread == self)
     {
         LEAVE;
-        return rv;
+        return error;
     }
     LEAVE;
-    return 0;
+    return error;
 }
 
 
@@ -2368,7 +2370,7 @@ int
 coda_grab_vnode(dev_t dev, ino_t ino, struct vnode **vpp)
 {
     /* This is like VFS_VGET() or igetinode()! */
-    int           error;
+    int           error = 0;
     struct mount *mp;
 
     ENTRY;
@@ -2376,8 +2378,9 @@ coda_grab_vnode(dev_t dev, ino_t ino, struct vnode **vpp)
     if (!(mp = devtomp(dev))) {
 	myprintf(("coda_grab_vnode: devtomp(%#lx) returns NULL\n",
 		  (u_long)dev2udev(dev)));
+	error = ENXIO;
         LEAVE;
-	return(ENXIO);
+	return(error);
     }
 
     /* XXX - ensure that nonzero-return means failure */
@@ -2393,12 +2396,12 @@ coda_grab_vnode(dev_t dev, ino_t ino, struct vnode **vpp)
 	return(ENOENT);
     }
     LEAVE;
-    return(0);
+    return(error);
 }
 
 void
 print_vattr( attr )
-	struct vattr *attr;
+struct vattr *attr;
 {
     char *typestr;
 
@@ -2570,7 +2573,7 @@ coda_pagein(void *v)
     int igot_internally = 0;
     int opened_internally = 0;
 
-    int error;
+    int error = 0;
 
     ASSURE_LOCKED(vp);
     ENTRY;
@@ -2585,8 +2588,9 @@ coda_pagein(void *v)
     if (IS_CTL_VP(vp)) {
 	MARK_INT_FAIL(CODA_RDWR_STATS);    
         ASSURE_LOCKED(vp);
+	error=EINVAL;
 	LEAVE;
-	return(EINVAL);
+	return(error);
     }
 
     /* 
@@ -2686,18 +2690,19 @@ coda_advlock(void *v)
 	int op = ap->a_op;
         register struct flock *fl = ap->a_fl;
 	int flags=ap->a_flags;
-	int rv;
+	int error;
 	ENTRY;
 
 	if(cp == NULL || cp->c_ovp == NULL )
 	{
 		myprintf(("coda_advlock: vp=%p, cp=%p\n",vp,cp));
+		error=EINVAL;
 		LEAVE;
-		return EINVAL;
+		return error;
 	}
 /* let UFS/HFS advlock do the job on the cache file */
-	rv=VOP_ADVLOCK(cp->c_ovp, id, op, fl, flags);
+	error=VOP_ADVLOCK(cp->c_ovp, id, op, fl, flags);
 	LEAVE;
-	return rv;
+	return error;
 }
 
