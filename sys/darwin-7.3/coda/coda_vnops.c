@@ -158,7 +158,9 @@ struct vnodeopv_entry_desc coda_vnodeop_entries[] = {
     { &vop_pathconf_desc, coda_pathconf },	/* pathconf */
     { &vop_advlock_desc, coda_vop_nop },	/* advlock */
     { &vop_lease_desc, coda_vop_nop },		/* lease */
-#ifndef DARWIN
+#ifdef DARWIN
+    { &vop_pagein_desc, coda_pagein },		/* pagein */
+#else /* !DARWIN */
     { &vop_poll_desc, (vop_t *) vop_stdpoll },
     { &vop_getpages_desc, (vop_t*)vop_stdgetpages },	/* pager intf.*/
     { &vop_putpages_desc, (vop_t*)vop_stdputpages },	/* pager intf.*/
@@ -204,7 +206,7 @@ int
 coda_vop_error(void *anon) {
     struct vnodeop_desc **desc = (struct vnodeop_desc **)anon;
 
-    myprintf(("coda_vop_error: Vnode operation %s called, but not defined.\n",
+    myprintf(("coda_vop_error: Vnode operation %s called, but not supported.\n",
 	      (*desc)->vdesc_name));
     /*
     panic("coda_vop_error");
@@ -218,7 +220,7 @@ coda_vop_nop(void *anon) {
     struct vnodeop_desc **desc = (struct vnodeop_desc **)anon;
 
     if (codadebug) {
-	myprintf(("Vnode operation %s called, but unsupported\n",
+	myprintf(("Vnode operation %s called, but is a no-op\n",
 		  (*desc)->vdesc_name));
     } 
    return (0);
@@ -281,9 +283,10 @@ coda_assure_lock(struct vnode *vp, int locktype, int line, const char *func)
 
         if(rv=coda_islockedbyme(vp, locktype))
         {
-            if(rv & locktype)
+            if((rv ^ locktype) == 0) // Note: bitwise xor here. 
                 return;
             myprintf(("LOCK ERROR: Vnode at %p IS LOCKED at line %d, function %s, by %d/%p but wrong type=%p should be %p.\n", vp, line, func, pid, thread, rv, locktype));
+	    return;
         }
         
         if(lockstatus(lkp, p))
@@ -293,13 +296,9 @@ coda_assure_lock(struct vnode *vp, int locktype, int line, const char *func)
         }
         else
         {
-            myprintf(("LOCK ERROR: Vnode at %p SHOULD BE LOCKED at line %d, function %s, by %d/%p but is not. locking it\n", vp, line, func, pid, thread));
-            //rv=lockmgr(lkp,locktype,&vp->v_interlock,p);    
-           // if(rv)
-               // myprintf(("LOCK CHECK: Unlock returned %d\n",rv));
+            myprintf(("LOCK ERROR: Vnode at %p SHOULD BE LOCKED at line %d, function %s, by %d/%p but is not.\n", vp, line, func, pid, thread));
         }
         
-       // VOP_LOCK(vp,locktype,p);
         return;
     }
     else
@@ -311,12 +310,8 @@ coda_assure_lock(struct vnode *vp, int locktype, int line, const char *func)
         {
             return;
         }
-        myprintf(("LOCK ERROR: Vnode at %p IS LOCKED at line %d, function %s, %d/%p but shouldn't be. unlocking it\n", vp, line, func,pid,thread));
+        myprintf(("LOCK ERROR: Vnode at %p IS LOCKED at line %d, function %s, %d/%p but shouldn't be.\n", vp, line, func,pid,thread));
         locktype=lockstatus(lkp,p);
-       //// rv=lockmgr(lkp, locktype | LK_RELEASE, &vp->v_interlock,p);
-       // if(rv)
-           // myprintf(("LOCK CHECK: Unlock returned %d\n",rv));
-//        VOP_UNLOCK(vp,0,p);
         return;
     }
 }
@@ -500,6 +495,7 @@ coda_close(v)
     error = venus_close(vtomi(vp), &cp->c_fid, flag, cred, THREAD2PROC);
     vrele(CTOV(cp));
     
+#if 0
     if(VOP_ISLOCKED(vp))
     {
         if (coda_lockdebug) {
@@ -507,6 +503,7 @@ coda_close(v)
         }
         VOP_UNLOCK(vp, 0, td);
     }
+#endif
 
     CODADEBUG(CODA_CLOSE, myprintf(("close: result %d\n",error)); )
     LEAVE;
@@ -838,6 +835,7 @@ coda_getattr(v)
     }
 
     error = venus_getattr(vtomi(vp), &cp->c_fid, cred, THREAD2PROC, vap);
+    vap->va_fsid = vp->v_mount->mnt_stat.f_fsid.val[0]; // Thanks to Pekka Nikander
 
     if (!error) {
 	CODADEBUG(CODA_GETATTR, myprintf(("getattr miss %s vp=%p: result %d\n",
@@ -1189,7 +1187,8 @@ coda_inactive(v)
  */
 
 //#define LOCK_PARENT vget(dvp, LK_EXCLUSIVE,td)
-#define LOCK_LEAF vget(*vpp, LK_EXCLUSIVE,td)
+//#define LOCK_LEAF vget(*vpp, LK_EXCLUSIVE,td)
+#define LOCK_LEAF VOP_LOCK(*vpp, LK_EXCLUSIVE, td)
 #define UNLOCK_PARENT VOP_UNLOCK(dvp, 0,td)
 #define UNLOCK_LEAF VOP_UNLOCK(*vpp, 0,td)
 
@@ -1264,21 +1263,6 @@ coda_lookup(v)
         myprintf(("Hiding entry %s from venus access\n",nm));
         *vpp = (struct vnode *)0;
         error = ENOENT;
-        goto exit;
-    }
-#endif
-#define DENY_ROOT_CREATES
-#ifdef DENY_ROOT_CREATES
-    if ( ((cnp->cn_nameiop == CREATE) || (cnp->cn_nameiop == RENAME)) && (dvp->v_vflag & VV_ROOT) ) 
-    {
-        
-        myprintf(("Denying create in /coda entry %s from venus access\n", nm));
-        *vpp = (struct vnode *)0;
-        
-        //ASSURE_LOCKED(dvp);
-        //ASSURE_LOCKED(*vpp);
-        LEAVE;
-        error = EACCES;
         goto exit;
     }
 #endif
@@ -1520,7 +1504,6 @@ coda_create(v)
 #ifdef DENY_ROOT_CREATES
     if ( dvp->v_vflag & VV_ROOT ) 
     {
-        
         myprintf(("Denying create in /coda entry %s from venus access\n", nm));
 
         *vpp = (struct vnode *)0;
@@ -2312,6 +2295,12 @@ void *v;
     {
 	myprintf(("Attempting unlock %p at %p on %s vp=%p, cp=%p\n", ap->a_flags, &vp->v_interlock, coda_f2s(&cp->c_fid), vp, cp));
     }
+    if(!coda_islockedbyme(vp,0))
+    {
+	myprintf((" The vnode %p is not locked by myself, so I'll try to avoid a panic here so that we can examine things\n",vp));
+	LEAVE;
+	return ENOLCK;
+    }
 #ifndef	DEBUG_LOCKS
     rv=lockmgr(&cp->c_lock, ap->a_flags| LK_RELEASE, &vp->v_interlock, td);
 #else
@@ -2559,4 +2548,125 @@ coda_pathconf(v)
 	}
 
 	return (error);
+}
+
+int
+coda_pagein(void *v)
+{
+    struct vop_pagein_args /* {
+	struct vnode 	*a_vp,
+	upl_t		a_pl,
+	vm_offset_t	a_pl_offset,
+	off_t		a_f_offset,
+	size_t		a_size,
+	struct ucred	*a_cred,
+	int		a_flags
+    } */ *ap =v;
+
+
+    struct vnode *vp = ap->a_vp;
+    struct cnode *cp = VTOC(vp);
+    struct ucred *cred = ap->a_cred;
+    struct vnode *cfvp = cp->c_ovp;
+    THREAD *td = CURTHREAD;
+    THREAD *ltd = td;
+    int igot_internally = 0;
+    int opened_internally = 0;
+
+    int error;
+
+    ASSURE_LOCKED(vp);
+    ENTRY;
+
+    MARK_ENTRY(CODA_PAGEIN_STATS); 
+
+/*    CODADEBUG(CODA_PAGEIN, myprintf(("coda_pagein(%d, %p, %d, %lld, %d)\n", rw,
+                              (void *)uiop->uio_iov->iov_base, uiop->uio_resid,
+                              (long long)uiop->uio_offset, uiop->uio_segflg)); ) */
+
+    /* Check for pagein of control object. */
+    if (IS_CTL_VP(vp)) {
+	MARK_INT_FAIL(CODA_RDWR_STATS);    
+        ASSURE_LOCKED(vp);
+	LEAVE;
+	return(EINVAL);
+    }
+
+    /* 
+     * If file is not already open this must be a page
+     * {read,write} request.  Iget the cache file's inode
+     * pointer if we still have its <device, inode> pair.
+     * Otherwise, we must do an internal open to derive the
+     * pair. 
+     */
+    if (cfvp == NULL) {
+
+	ltd = CURTHREAD; 
+
+	if (cp->c_inode != 0 ) {
+	    igot_internally = 1;
+	    error = coda_grab_vnode(cp->c_device, cp->c_inode, &cfvp);
+	    if (error) 
+	    {
+		MARK_INT_FAIL(CODA_RDWR_STATS);    
+                ASSURE_LOCKED(vp);
+        	LEAVE;
+		return(error);
+	    }
+	    /* 
+	     * We get the vnode back locked by curthread in both Mach and
+	     * NetBSD.  Needs unlocked 
+	     */
+            if (coda_lockdebug) {
+                myprintf(("Will attempt unlock on %p from %s line %d\n",cfvp,__func__,__LINE__));
+            }
+	    VOP_UNLOCK(cfvp, 0, ltd);
+	}
+	else 
+        {
+	    opened_internally = 1;
+	    MARK_INT_GEN(CODA_OPEN_STATS);
+            error = VOP_OPEN(vp, FREAD , cred, td);
+            myprintf(("coda_pagein: Internally Opening %p\n", vp));
+	    if (error) {
+		myprintf(("coda_pagein: VOP_OPEN on container failed %d\n", error));    
+                ASSURE_LOCKED(vp);
+        	LEAVE;
+		return (error);
+	    }
+	    if (vp->v_type == VREG) {
+		error = vfs_object_create(vp, td, cred);
+		if (error != 0) {
+		    myprintf(("coda_pagein: vfs_object_create() returns %d\n", error));
+		    vput(vp);
+		}
+	    }
+	    if (error) {
+		MARK_INT_FAIL(CODA_RDWR_STATS);    
+                ASSURE_LOCKED(vp);
+        	LEAVE;
+		return(error);
+	    }
+	    cfvp = cp->c_ovp;
+	}
+    }
+
+    /* Have UFS handle the call. */
+    CODADEBUG(CODA_RDWR, myprintf(("indirect rdwr: fid = %s, refcnt = %d\n",
+			     coda_f2s(&cp->c_fid), CTOV(cp)->v_usecount)); )
+
+    error = VOP_PAGEIN(cfvp, ap->a_pl, ap->a_pl_offset, ap->a_f_offset, ap->a_size, cred, ap->a_flags);
+
+    if (error)
+	MARK_INT_FAIL(CODA_PAGEIN_STATS);
+    else
+	MARK_INT_SAT(CODA_PAGEIN_STATS);
+
+    /* Do an internal close if necessary. */
+    if (opened_internally) {
+	MARK_INT_GEN(CODA_CLOSE_STATS);
+	(void)VOP_CLOSE(vp, FREAD, cred, td);
+    }
+
+    return (error);
 }
