@@ -305,10 +305,15 @@ struct coda_statfs {
 #define CODA_NCALLS 35
 
 #define DOWNCALL(opcode) (opcode >= CODA_REPLACE && opcode <= CODA_PURGEFID)
-
-#define VC_MAXDATASIZE	    8192
+#ifdef DARWIN
+#define VC_MAXDATASIZE	    4096
+#else /* !DARWIN */
+#define VC_MAXDATASIZE      8192
+#endif /* !DARWIN */
 #define VC_MAXMSGSIZE      sizeof(union inputArgs)+sizeof(union outputArgs) +\
                             VC_MAXDATASIZE  
+#define PRINTENTRY myprintf(("Entered %s, pid=%d\n",__func__,current_proc()->p_pid))
+#define PRINTLEAVE myprintf(("Leaving %s, pid=%d, line=%d\n",__func__,current_proc()->p_pid,__LINE__))
 
 #define CIOC_KERNEL_VERSION _IOWR('c', 10, sizeof (int))
 #if	0
