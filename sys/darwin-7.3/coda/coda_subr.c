@@ -101,6 +101,7 @@ coda_alloc(void)
     }
     else {
 	CODA_ALLOC(cp, struct cnode *, sizeof(struct cnode));
+        if(cp == 0) return cp;
 	/* NetBSD vnodes don't have any Pager info in them ('cause there are
 	   no external pagers, duh!) */
 #define VNODE_VM_INFO_INIT(vp)         /* MT */
