@@ -12,17 +12,28 @@ To do:
 	   and Darwin. In teality, Darwin uses "struct proc *" as a handle to the execution
 	   environment, while FreeBSD uses "struct thread". By defining a separate type, the
 	   textual difference in this respect may be kept at a minimum.
-	   Status: Not initiated
+	   Status: Done, but implemented as a macro instead of a typedef.
 
 	3. Write a KEXT start/stop routine.
-	   Status: Not initiated
+	   Status: Done
 
 	4. Create #defines that modifies BSD constructs into Darwin constructs and put these
 	   defines in a separate file.
-	   Status: Not initiated
+	   Status: Done
 
 	5. Add code that handles the Darwin ubc buffers.
-	   Status: Not initiated
-	   Status: Not initiated
+	   Status: Done
 
-Porting notes:
+Milestones:
+At each milestone achieved, Check in all changes to CVS and set a tag.
+
+	6. The kext survives the starting of venus.
+	   Status: OK.
+	7. The welcome file at /coda/testserver.coda.cs.cmu.edu/Welcome can be read.
+	   Status: Not tested.
+	8. When a file can be written into /coda/testserver.coda.cs.cmu.edu/Welcome/playground.
+	   Status: Not tested.
+	9. When things work at normal speed.
+	   Status: Not tested.
+       10. When disconnected mode works.
+	   Status: Not tested.
