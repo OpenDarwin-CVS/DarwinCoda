@@ -131,7 +131,7 @@ vc_nb_open(dev, flag, mode, td)
     THREAD *td;             /* NetBSD only */
 {
     register struct vcomm *vcp;
-    int rv;
+    int error = 0;
     
     ENTRY;
 
@@ -142,11 +142,11 @@ vc_nb_open(dev, flag, mode, td)
     }
     if (!coda_nc_initialized)
     {
-	rv=coda_nc_init();
-        if(rv) 
+	error=coda_nc_init();
+        if(error) 
         {
 	    LEAVE;
-	    return rv;
+	    return error;
 	}
     }
     
@@ -180,7 +180,7 @@ vc_nb_close (dev, flag, mode, td)
     register struct vcomm *vcp;
     register struct vmsg *vmp, *nvmp = NULL;
     struct coda_mntinfo *mi;
-    int                 err;
+    int                 error = 0;
 	
     ENTRY;
 
@@ -251,10 +251,10 @@ vc_nb_close (dev, flag, mode, td)
 #endif
     }
 
-    err = dounmount(mi->mi_vfsp, flag, td);
-    if (err)
+    error = dounmount(mi->mi_vfsp, flag, td);
+    if (error)
 	myprintf(("Error %d unmounting vfs in vcclose(%d)\n", 
-	           err, minor(dev)));
+	           error, minor(dev)));
     LEAVE;
     return 0;
 }
@@ -439,14 +439,15 @@ vc_nb_ioctl(dev, cmd, addr, flag, td)
     int           flag;      
     THREAD *td;
 {
+    int error=0;
     ENTRY;
 
     switch(cmd) {
     case CODARESIZE: {
 	struct coda_resize *data = (struct coda_resize *)addr;
+	error=coda_nc_resize(data->hashsize, data->heapsize, IS_DOWNCALL);
 	LEAVE;
-	return(coda_nc_resize(data->hashsize, data->heapsize, IS_DOWNCALL));
-	break;
+	return error;
     }
     case CODASTATS:
 	if (coda_nc_use) {
@@ -454,8 +455,9 @@ vc_nb_ioctl(dev, cmd, addr, flag, td)
 	    LEAVE;
 	    return(0);
 	} else {
+	    error=ENODEV;
 	    LEAVE;
-	    return(ENODEV);
+	    return(error);
 	}
 	break;
     case CODAPRINT:
@@ -464,35 +466,39 @@ vc_nb_ioctl(dev, cmd, addr, flag, td)
 	    LEAVE;
 	    return(0);
 	} else {
+	    error=ENODEV;
 	    LEAVE;
-	    return(ENODEV);
+	    return(error);
 	}
 	break;
     case CIOC_KERNEL_VERSION:
 	switch (*(u_int *)addr) {
 	case 0:
 		*(u_int *)addr = coda_kernel_version;
-	    LEAVE;
+	    	LEAVE;
 		return 0;
 		break;
 	case 1:
 	case 2:
 		if (coda_kernel_version != *(u_int *)addr)
 		{
+		    error=ENOENT;
 		    LEAVE;
-		    return ENOENT;
+		    return(error);
 		}
 		else
 		    LEAVE;
 		    return 0;
 	default:
+		error=ENOENT;
 		LEAVE;
-		return ENOENT;
+		return(error);
 	}
     	break;
     default :
+	error=EINVAL;
 	LEAVE;
-	return(EINVAL);
+	return(error);
 	break;
     }
 }
