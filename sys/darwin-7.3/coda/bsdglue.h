@@ -52,6 +52,7 @@ extern int  memcmp(const void *, const void *, size_t);
 #define cn_thread cn_proc
 #define td_ucred p_ucred
 #define a_td a_p
+#define USE_VGET
 
 #define devsw(x) (&cdevsw[major(dev)])
 //#define VOP_OPEN(x,y,z,w,t) VOP_OPEN(x,y,z,w) - Changes are in the code instead. old redef kept for reference
@@ -65,7 +66,7 @@ extern int  memcmp(const void *, const void *, size_t);
 #define vfs_object_create(vp, p, cred) (0)
 #define VFS_SET(x,y,z) void _no_coda_vfs_set(){}
 
-#define udev2dev(x,y) (x)
+#define udev2dev(x) (x)
 //#define cdev_t dev_t
 #define dev2udev(x) (x)
 #define VNODEOP_SET(x)
