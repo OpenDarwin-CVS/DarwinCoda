@@ -36,6 +36,35 @@ int vrefcnt(struct vnode *vp)
 
     return (i);
 }
+/* 
+ * Using VFSTOHFS directly within the coda routines opens up a significantly large can of worms in form
+ * of a name clash between struct cnode (in HFS) and struct cnode (in CODA) Bringing in both coda.h and hfs.h
+ * in the same source file also created zillions of other name clashes, so don't try to optimize away this
+ * little function. You have been warned!
+ */
+/*
+ * Warning: The struct definition below is stolen from hfs/hfs.h 
+ * It is NOT complete and should only be used to make VFSTOHFS work
+ *
+ */
+struct hfsmount {
+    u_int32_t               hfs_flags;      /* see below */
+    /* Physical Description */
+    u_long                          hfs_phys_block_count;   /* Num of PHYSICAL blocks of volume */
+    u_long                          hfs_phys_block_size;    /* Always a multiple of 512 */
+    
+    /* Access to VFS and devices */
+    struct mount            *hfs_mp;                                /* filesystem vfs structure */
+    struct vnode            *hfs_devvp;                             /* block device mounted vnode */
+    dev_t                           hfs_raw_dev;                    /* device mounted */
+};
+
+#define VFSTOHFS(MP) ((struct hfsmount *)(MP)->mnt_data)
+
+dev_t hfsdev( struct mount *mp)
+{
+    return VFSTOHFS(mp)->hfs_raw_dev;
+}
 
 extern int coda_debug_locks;
 
