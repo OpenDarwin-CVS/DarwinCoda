@@ -91,10 +91,8 @@
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
-				B4BD6ABB0643EF1B00697EED,
 				B4BD6ADC0643EF8800697EED,
 				B4BD6ADD0643EF8800697EED,
-				B4BD6ADE0643EF8800697EED,
 				32A4FEC30562C75700D090E7,
 				089C167DFE841241C02AAC07,
 			);
@@ -253,10 +251,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				32A4FEBC0562C75700D090E7,
-				B4BD6ABC0643EF1B00697EED,
 				B4BD6ADF0643EF8800697EED,
 				B4BD6AE00643EF8800697EED,
-				B4BD6AE10643EF8800697EED,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -673,20 +669,6 @@
 			settings = {
 			};
 		};
-		B4BD6ABB0643EF1B00697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = text;
-			path = 00READ;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		B4BD6ABC0643EF1B00697EED = {
-			fileRef = B4BD6ABB0643EF1B00697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		B4BD6ADC0643EF8800697EED = {
 			fileEncoding = 7;
 			isa = PBXFileReference;
@@ -703,14 +685,6 @@
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		B4BD6ADE0643EF8800697EED = {
-			fileEncoding = 7;
-			isa = PBXFileReference;
-			lastKnownFileType = text;
-			path = TODO;
-			refType = 4;
-			sourceTree = "<group>";
-		};
 		B4BD6ADF0643EF8800697EED = {
 			fileRef = B4BD6ADC0643EF8800697EED;
 			isa = PBXBuildFile;
@@ -719,12 +693,6 @@
 		};
 		B4BD6AE00643EF8800697EED = {
 			fileRef = B4BD6ADD0643EF8800697EED;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B4BD6AE10643EF8800697EED = {
-			fileRef = B4BD6ADE0643EF8800697EED;
 			isa = PBXBuildFile;
 			settings = {
 			};
