@@ -5,9 +5,12 @@
 # To avoid mess, I prefer installing into my homedirectory
 prefix=$HOME/work/proj/coda
 
+
 export PATH=$PATH:$prefix:$prefix/bin
 
 echo '-- Installing into ' $prefix
+
+mkdir -p $prefix
 
 # Using tmp to create a mess
 cd /var/tmp
