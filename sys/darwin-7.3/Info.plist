@@ -21,7 +21,7 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel</key>
-		<string>7.3</string>
+		<string>7.4</string>
 		<key>com.apple.kernel.bsd</key>
 		<string>6.9.9</string>
 		<key>com.apple.kernel.mach</key>
