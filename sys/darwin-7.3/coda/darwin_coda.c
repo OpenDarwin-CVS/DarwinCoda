@@ -263,7 +263,7 @@ coda_cdevsw_init()
         maj = cdevsw_add(-1, &coda_cdevsw);
         if (maj == -1) 
         {
-            printf("coda_init: failed to allocate a major number!\n");
+            printf("coda_cdevsw_init: failed to allocate a major number!\n");
             return -1;
         }
         devfs_make_node(makedev(maj, 0), DEVFS_CHAR, UID_ROOT, GID_WHEEL, 0600, "cfs0", 0);
