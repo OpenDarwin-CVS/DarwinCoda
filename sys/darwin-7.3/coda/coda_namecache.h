@@ -149,7 +149,7 @@ struct coda_hash {		/* Start of Hash chain */
 #define CODA_NC_DEBUG(N, STMT)     { if (coda_nc_debug & (1 <<N)) { STMT } }
 
 /* Prototypes of functions exported within cfs */
-extern void coda_nc_init(void);
+extern int coda_nc_init(void);
 extern void coda_nc_enter(struct cnode *, const char *, int, struct ucred *, struct cnode *);
 extern struct cnode *coda_nc_lookup(struct cnode *, const char *, int, struct ucred *);
 
