@@ -64,8 +64,10 @@ extern int coda_nc_initialized;    /* Set if cache has been initialized */
 #include <sys/malloc.h>
 #include <sys/file.h>		/* must come after sys/malloc.h */
 #include <sys/mount.h>
+#ifndef DARWIN
 #include <sys/mutex.h>
 #include <sys/poll.h>
+#endif /* !DARWIN */
 #include <sys/proc.h>
 
 #include <coda/coda.h>
@@ -74,10 +76,14 @@ extern int coda_nc_initialized;    /* Set if cache has been initialized */
 #include <coda/coda_io.h>
 #include <coda/coda_psdev.h>
 
+#ifndef DARWIN
 #define CTL_C
+#endif /* !DARWIN */
 
 #ifdef CTL_C
+#ifndef DARWIN
 #include <sys/signalvar.h>
+#endif /* !DARWIN */
 #endif
 
 int coda_psdev_print_entry = 0;
@@ -120,7 +126,7 @@ vc_nb_open(dev, flag, mode, td)
     dev_t        dev;      
     int          flag;     
     int          mode;     
-    struct thread *td;             /* NetBSD only */
+    THREAD *td;             /* NetBSD only */
 {
     register struct vcomm *vcp;
     
@@ -152,7 +158,7 @@ vc_nb_close (dev, flag, mode, td)
     dev_t        dev;      
     int          flag;     
     int          mode;     
-    struct thread *td;
+    THREAD *td;
 {
     register struct vcomm *vcp;
     register struct vmsg *vmp, *nvmp = NULL;
@@ -391,7 +397,7 @@ vc_nb_ioctl(dev, cmd, addr, flag, td)
     u_long        cmd;       
     caddr_t       addr;      
     int           flag;      
-    struct thread *td;
+    THREAD *td;
 {
     ENTRY;
 
@@ -438,12 +444,12 @@ vc_nb_ioctl(dev, cmd, addr, flag, td)
 	break;
     }
 }
-
+#ifndef DARWIN
 int
 vc_nb_poll(dev, events, td)         
     dev_t         dev;    
     int           events;   
-    struct thread *td;
+    THREAD *td;
 {
     register struct vcomm *vcp;
     int event_msk = 0;
@@ -466,6 +472,7 @@ vc_nb_poll(dev, events, td)
     
     return(0);
 }
+#endif /* !DARWIN */
 
 /*
  * Statistics
@@ -489,8 +496,9 @@ coda_call(mntinfo, inSize, outSize, buffer)
 	struct vmsg *vmp;
 	int error;
 #ifdef	CTL_C
-	struct thread *td = curthread;
-	struct proc *p = td->td_proc;
+	THREAD *td = CURTHREAD;
+	struct proc *p = THREAD2PROC;
+
 	sigset_t psig_omask;
 	sigset_t tempset;
 	int i;
