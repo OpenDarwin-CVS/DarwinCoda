@@ -87,7 +87,12 @@ __FBSDID("$FreeBSD: src/sys/coda/coda_vnops.c,v 1.51 2003/09/07 07:43:09 tjr Exp
 /* 
  * These flags select various performance enhancements.
  */
-int coda_attr_cache  = 1;       /* Set to cache attributes in the kernel */
+
+/* Warning! Turning on the kernel attribute cache makes coda unusable from the 
+   Finder, since the finder makes heavy use of file flags, which appears not 
+   to function properly with the cache on CB 040918 */
+
+int coda_attr_cache  = 0;       /* Set to cache attributes in the kernel */
 int coda_symlink_cache = 1;     /* Set to cache symbolic link information */
 int coda_access_cache = 1;      /* Set to handle some access checks directly */
 
@@ -156,7 +161,7 @@ struct vnodeopv_entry_desc coda_vnodeop_entries[] = {
     { &vop_print_desc, coda_vop_error },	/* print */
     { &vop_islocked_desc, coda_islocked },	/* islocked */
     { &vop_pathconf_desc, coda_pathconf },	/* pathconf */
-    { &vop_advlock_desc, coda_vop_nop },	/* advlock */
+    { &vop_advlock_desc, coda_advlock },	/* advlock */
     { &vop_lease_desc, coda_vop_nop },		/* lease */
 #ifdef DARWIN
     { &vop_pagein_desc, coda_pagein },		/* pagein */
@@ -417,7 +422,7 @@ coda_open(v)
     error = VOP_OPEN(vp, flag, cred, td, -1); 
 #endif /* !DARWIN */
     if (error) {
-    	printf("coda_open: VOP_OPEN on container failed %d\n", error);
+    	myprintf(("coda_open: VOP_OPEN on container failed %d\n", error));
         ASSURE_LOCKED(vp);
 	LEAVE;
 	return (error);
@@ -426,7 +431,7 @@ coda_open(v)
     if (vp->v_type == VREG) {
     	error = vfs_object_create(vp, td, cred);
 	if (error != 0) {
-	    printf("coda_open: vfs_object_create() returns %d\n", error);
+	    myprintf(("coda_open: vfs_object_create() returns %d\n", error));
 	    vput(vp);
 	}
     }
@@ -465,8 +470,8 @@ coda_close(v)
     if (IS_UNMOUNTING(cp)) {
 	if (cp->c_ovp) {
 #ifdef	CODA_VERBOSE
-	    printf("coda_close: destroying container ref %d, ufs vp %p of vp %p/cp %p\n",
-		    vrefcnt(vp), cp->c_ovp, vp, cp);
+	    myprintf("coda_close: destroying container ref %d, ufs vp %p of vp %p/cp %p\n",
+		    vrefcnt(vp), cp->c_ovp, vp, cp));
 #endif
 #ifdef	hmm
 	    vgone(cp->c_ovp);
@@ -476,7 +481,7 @@ coda_close(v)
 #endif
 	} else {
 #ifdef	CODA_VERBOSE
-	    printf("coda_close: NO container vp %p/cp %p\n", vp, cp);
+	    myprintf(("coda_close: NO container vp %p/cp %p\n", vp, cp));
 #endif
 	}
 	LEAVE;
@@ -802,13 +807,13 @@ coda_getattr(v)
     int error;
 
     ENTRY;
-    ASSURE_LOCKED_TYPE(vp,LK_EXCLUSIVE|LK_SHARED);
+    ASSURE_LOCKED(vp);
     
     MARK_ENTRY(CODA_GETATTR_STATS);
 
     if (IS_UNMOUNTING(cp))
     {
-        ASSURE_LOCKED_TYPE(vp,LK_EXCLUSIVE|LK_SHARED);
+        ASSURE_LOCKED(vp);
 	LEAVE;
 	return ENODEV;
     }
@@ -816,7 +821,7 @@ coda_getattr(v)
     /* Check for getattr of control object. */
     if (IS_CTL_VP(vp)) {
 	MARK_INT_FAIL(CODA_GETATTR_STATS);
-        ASSURE_LOCKED_TYPE(vp,LK_EXCLUSIVE|LK_SHARED);
+        ASSURE_LOCKED(vp);
 	LEAVE;
 	return(ENOENT);
     }
@@ -829,7 +834,7 @@ coda_getattr(v)
 	
 	*vap = cp->c_vattr;
 	MARK_INT_SAT(CODA_GETATTR_STATS);
-        ASSURE_LOCKED_TYPE(vp,LK_EXCLUSIVE|LK_SHARED);
+        ASSURE_LOCKED(vp);
 	LEAVE;
 	return(0);
     }
@@ -859,7 +864,7 @@ coda_getattr(v)
 	}
 	
     }
-    ASSURE_LOCKED_TYPE(vp,LK_EXCLUSIVE|LK_SHARED);
+    ASSURE_LOCKED(vp);
     LEAVE;
     return(error);
 }
@@ -1075,8 +1080,8 @@ coda_fsync(v)
     /*
     VI_LOCK(vp);
     if (!vp->v_usecount) {
-    	printf("coda_fsync on vnode %p with %d usecount.  c_flags = %x (%x)\n",
-		vp, vp->v_usecount, cp->c_flags, cp->c_flags&C_PURGING);
+    	myprintf(("coda_fsync on vnode %p with %d usecount.  c_flags = %x (%x)\n",
+		vp, vp->v_usecount, cp->c_flags, cp->c_flags&C_PURGING))))));
     }
     VI_UNLOCK(vp);
     */
@@ -1152,10 +1157,11 @@ coda_inactive(v)
     {
 	myprintf(("coda_inactive: IS_UNMOUNTING use %d: vp %p, cp %p\n", vrefcnt(vp), vp, cp));
 	if (cp->c_ovp != NULL)
-	    printf("coda_inactive: cp->ovp != NULL use %d: vp %p, cp %p\n",
-                   vrefcnt(vp), vp, cp);
+	    myprintf(("coda_inactive: cp->ovp != NULL use %d: vp %p, cp %p\n", vrefcnt(vp), vp, cp));
         
 	lockmgr(&cp->c_lock, LK_RELEASE, &vp->v_interlock, td);
+        ASSURE_UNLOCKED(vp);
+        LEAVE;
     } else {
 #ifdef OLD_DIAGNOSTIC
 	if (vrefcnt(CTOV(cp))) {
@@ -1170,11 +1176,11 @@ coda_inactive(v)
         }
 	VOP_UNLOCK(vp, 0, td);
 	vgone(vp);
+        LEAVE;
+// We cannot assure unlocking on exiting sine the vnode is now free to be used by something else
     }
 
     MARK_INT_SAT(CODA_INACTIVE_STATS);
-    ASSURE_UNLOCKED(vp);
-    LEAVE;
     return(0);
 }
 
@@ -1243,18 +1249,19 @@ coda_lookup(v)
         LEAVE;
         return ENOTDIR;
     }
-#define HIDE_ROOT_DOTFILES    
+/* #define HIDE_ROOT_DOTFILES    */
 #ifdef HIDE_ROOT_DOTFILES    
     /*  Kludge ALERT
         At the CODA root, only entries matching a DNS name are supposed to exist. Thus if the Finder
         looks for a .hidden file, we refuse to give it back, thus avoiding a venus bug that causes it to die.
-        This code explicitly hides all entries starting with ., except . and ..
+        This code explicitly hides all entries starting with ., except . and .. and those starting with ._
     */ 
     if ( (dvp->v_vflag & VV_ROOT) && 
          (cnp->cn_nameiop != CREATE) &&
          (cnp->cn_nameiop != RENAME) &&
          *nm == '.' &&
          (nm[1] != '\0') && 
+         (nm[1] != '_') &&
          !(nm[1] == '.' && nm[2] == '\0')
           
        )
@@ -1400,7 +1407,7 @@ coda_lookup(v)
                     }
                     if (error = LOCK_LEAF)
                     {
-                        printf("coda_lookup: ");
+                        myprintf(("coda_lookup: "));
                         panic("unlocked parent but couldn't lock child");
                     }
                 }
@@ -1426,8 +1433,8 @@ coda_lookup(v)
                 }
                 if ((error = LOCK_LEAF)) 
                 {
-		    printf("coda_lookup: ");
-		    panic("unlocked parent but couldn't lock child");
+		    myprintf(("coda_lookup: "));
+		    panic("locked parent but couldn't lock child");
 		}
 	    }
 	}
@@ -1568,7 +1575,7 @@ coda_create(v)
                 myprintf(("Will attempt lock on %p from %s line %d\n",*ap->a_vpp,__func__,__LINE__));
             }
 	    if ((error = vn_lock(*ap->a_vpp, LK_EXCLUSIVE, td))) {
-		printf("coda_create: ");
+		myprintf(("coda_create: "));
 		panic(" couldn't lock child");
 	    }
 #else /* ! USE_VGET */
@@ -1578,7 +1585,7 @@ coda_create(v)
 	}
 #ifdef OLD_DIAGNOSTIC
 	else {
-	    printf("coda_create: LOCKLEAF not set!\n");
+	    myprintf(("coda_create: LOCKLEAF not set!\n"));
 	}
 #endif
     }
@@ -2111,9 +2118,9 @@ coda_readdir(v)
 #else /* !DARWIN */
 	    error = VOP_OPEN(vp, FREAD, cred, td, -1);
 #endif /* !DARWIN */
-printf("coda_readdir: Internally Opening %p\n", vp);
+	myprintf(("coda_readdir: Internally Opening %p\n", vp));
 	    if (error) {
-		printf("coda_readdir: VOP_OPEN on container failed %d\n", error);
+		myprintf(("coda_readdir: VOP_OPEN on container failed %d\n", error));
                 ASSURE_LOCKED(vp);
         	LEAVE;
 		return (error);
@@ -2121,7 +2128,7 @@ printf("coda_readdir: Internally Opening %p\n", vp);
 	    if (vp->v_type == VREG) {
 		error = vfs_object_create(vp, td, cred);
 		if (error != 0) {
-		    printf("coda_readdir: vfs_object_create() returns %d\n", error);
+		    myprintf(("coda_readdir: vfs_object_create() returns %d\n", error));
 		    vput(vp);
 		}
 	    }
@@ -2189,14 +2196,14 @@ coda_bmap(v)
 		ret =  VOP_BMAP(cp->c_ovp, bn, vpp, bnp, ap->a_runp, ap->a_runb);
 #endif /* !DARWIN */
 #if	0
-		printf("VOP_BMAP(cp->c_ovp %p, bn %p, vpp %p, bnp %lld, ap->a_runp %p, ap->a_runb %p) = %d\n",
-			cp->c_ovp, bn, vpp, bnp, ap->a_runp, ap->a_runb, ret);
+		myprintf(("VOP_BMAP(cp->c_ovp %p, bn %p, vpp %p, bnp %lld, ap->a_runp %p, ap->a_runb %p) = %d\n",
+			cp->c_ovp, bn, vpp, bnp, ap->a_runp, ap->a_runb, ret));
 #endif
         	LEAVE;
 		return ret;
 	} else {
 #if	0
-		printf("coda_bmap: no container\n");
+		myprintf(/"coda_bmap: no container\n"));
 #endif
     		LEAVE;
 		return(EOPNOTSUPP);
@@ -2224,7 +2231,7 @@ coda_reclaim(v)
 #ifdef	DEBUG
 	if (VTOC(vp)->c_ovp) {
 	    if (IS_UNMOUNTING(cp))
-		printf("coda_reclaim: c_ovp not void: vp %p, cp %p\n", vp, cp);
+		myprintf(("coda_reclaim: c_ovp not void: vp %p, cp %p\n", vp, cp));
 	}
 #endif
     } else {
@@ -2550,6 +2557,7 @@ coda_pathconf(v)
 	return (error);
 }
 
+#ifdef DARWIN
 int
 coda_pagein(void *v)
 {
@@ -2670,3 +2678,37 @@ coda_pagein(void *v)
 
     return (error);
 }
+#endif /* DARWIN */
+
+int
+coda_advlock(void *v)
+{
+        struct vop_advlock_args /* {
+                struct vnode *a_vp;
+                caddr_t  a_id;
+                int  a_op;
+                struct flock *a_fl;
+                int  a_flags;
+        } */ *ap=v;
+
+	struct vnode *vp=ap->a_vp;
+        register struct cnode *cp = VTOC(vp);
+	caddr_t id = ap->a_id;
+	int op = ap->a_op;
+        register struct flock *fl = ap->a_fl;
+	int flags=ap->a_flags;
+	int rv;
+	ENTRY;
+
+	if(cp == NULL || cp->c_ovp == NULL )
+	{
+		myprintf(("coda_advlock: vp=%p, cp=%p\n",vp,cp));
+		LEAVE;
+		return EINVAL;
+	}
+/* let UFS/HFS advlock do the job on the cache file */
+	rv=VOP_ADVLOCK(cp->c_ovp, id, op, fl, flags);
+	LEAVE;
+	return rv;
+}
+
