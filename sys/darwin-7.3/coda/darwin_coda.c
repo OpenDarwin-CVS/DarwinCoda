@@ -1,5 +1,5 @@
 /*
- * Copyright (C) Christer Bernérus, 2004. All rights reserve
+ * Copyright (C) Christer Bernerus, 2004. All rights reserved
  */
 /*
  * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
