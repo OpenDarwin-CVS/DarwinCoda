@@ -66,7 +66,8 @@ MALLOC_DEFINE(M_CODA, "CODA storage", "Various Coda Structures");
 
 int codadebug = 0;
 int coda_vfsop_print_entry = 0;
-#define ENTRY    if(coda_vfsop_print_entry) myprintf(("Entered %s\n",__func__))
+#define ENTRY    if(coda_vfsop_print_entry) PRINTENTRY
+#define LEAVE    if(coda_vfsop_print_entry) PRINTLEAVE
 
 struct vnode *coda_ctlvp;
 struct coda_mntinfo coda_mnttbl[NVCODA]; /* indexed by minor device number */
@@ -82,6 +83,7 @@ struct coda_op_stats coda_vfsopstats[CODA_VFSOPS_SIZE];
 
 extern int coda_nc_initialized;     /* Set if cache has been initialized */
 extern int vc_nb_open(dev_t, int, int, THREAD *);
+extern int coda_instances;
 #ifdef DARWIN
 extern dev_t hfsdev(struct mount *mp);
 #endif /* DARWIN */
@@ -185,12 +187,18 @@ coda_mount(vfsp, path, data, ndp, td)
     mi->mi_vfsp = vfsp;
     mi->mi_started = 0;			/* XXX See coda_root() */
     
+    rootfid.opaque[0] = 0;
+    rootfid.opaque[1] = 0;
+    rootfid.opaque[2] = 0;
+    rootfid.opaque[3] = 0; 
+    
     /*
      * Make a root vnode to placate the Vnode interface, but don't
      * actually make the CODA_ROOT call to venus until the first call
      * to coda_root in case a server is down while venus is starting.
      */
     cp = make_coda_node(&rootfid, vfsp, VDIR);
+    if(cp==0) return ENOMEM;
     rootvp = CTOV(cp);
     rootvp->v_vflag |= VV_ROOT;
 	
@@ -200,6 +208,8 @@ coda_mount(vfsp, path, data, ndp, td)
     when closing down the system.
  */
     cp = make_coda_node(&ctlfid, 0, VCHR);
+    if(cp==0) return ENOMEM;
+
 
     coda_ctlvp = CTOV(cp);
 
@@ -223,7 +233,10 @@ coda_mount(vfsp, path, data, ndp, td)
     if (error)
 	MARK_INT_FAIL(CODA_MOUNT_STATS);
     else
+    {
 	MARK_INT_SAT(CODA_MOUNT_STATS);
+	coda_instances++;
+    }
     
     return(error);
 }
@@ -271,7 +284,10 @@ coda_unmount(vfsp, mntflags, td)
 	if (error)
 	    MARK_INT_FAIL(CODA_UMOUNT_STATS);
 	else
+	{
 	    MARK_INT_SAT(CODA_UMOUNT_STATS);
+	    coda_instances--;
+	}
 
 	return(error);
     }
@@ -322,6 +338,7 @@ coda_root(vfsp, vpp)
 		vget(*vpp, LK_EXCLUSIVE, td);
 #endif
 		MARK_INT_SAT(CODA_ROOT_STATS);
+                LEAVE;
 		return(0);
 	    }
     }
@@ -376,6 +393,7 @@ coda_root(vfsp, vpp)
     }
 
  exit:
+    LEAVE;  
     return(error);
 }
 
@@ -489,6 +507,8 @@ coda_fhtovp(vfsp, fhp, nam, vpp, exflagsp, creadanonp)
 		 myprintf(("vget: %s type %d result %d\n",
 			coda_f2s(&VFid), vtype, error)); )	    
 	cp = make_coda_node(&VFid, vfsp, vtype);
+        if(cp==0) return ENOMEM;
+
 	*vpp = CTOV(cp);
     }
     return(error);
@@ -559,6 +579,7 @@ struct vfsops coda_vfsops = {
     .vfs_statfs =		coda_nb_statfs,
     .vfs_sync = 		coda_sync,
     .vfs_unmount =		coda_unmount,
+    .vfs_fhtovp =		coda_fhtovp,
 };
 
 VFS_SET(coda_vfsops, coda, VFCF_NETWORK);
