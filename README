@@ -1,0 +1,16 @@
+This project contains Darwin and MacOS X specific utilities that
+hopefully will enable the use of the Coda file system on 
+those platforms.
+
+The Coda File system is a Research project, not a product.  So if
+you use it, expect anything to happen.
+
+This part, which concerns the DARWIN/MacOSX platform isn't even a
+Research project.  It depends entirely of the commitment of interested
+individuals. Thus, there are no warranties whatsoever, and no support
+except at the grace of those who wants to see Coda on the Mac/Darwin
+platform.
+
+For more information on the Coda file system, see http://coda.cs.cmu.edu
+
+						Christer Bernérus
