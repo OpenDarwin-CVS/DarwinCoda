@@ -247,6 +247,7 @@ coda_assure_lock(struct vnode *vp, int locktype, int line, const char *func)
     pid_t pid=p->p_pid;
     int rv;
     
+
     if(!vp)
     {
         myprintf(("LOCK CHECK: vp=NULL at line %d, function %s by %d/%p\n",line,func,pid,thread));
@@ -255,7 +256,7 @@ coda_assure_lock(struct vnode *vp, int locktype, int line, const char *func)
     
     if(vp->v_op != coda_vnodeop_p)
     {
-        myprintf(("LOCK CHECK WARNING: Vnode %p is not a coda vnode, v_op=%p\n",vp,vp->v_op));
+        myprintf(("LOCK CHECK WARNING at line %d, function %s : Vnode %p is not a coda vnode, v_op=%p\n",line,func,vp,vp->v_op));
         return;
     }
     
@@ -265,7 +266,7 @@ coda_assure_lock(struct vnode *vp, int locktype, int line, const char *func)
 #ifdef CNODE_NAME_DEBUG
         cp->c_name[31]='\0'; // just in case
 #endif
-        myprintf(("LOCK CHECK: vp=%p, name=%s, locktype=%p\n",vp,GET_CNODE_NAME,locktype));
+        myprintf(("LOCK CHECK in %s line %d: vp=%p, name=%s, locktype=%p\n",func,line,vp,GET_CNODE_NAME,locktype));
     }
     else
     {
@@ -287,7 +288,7 @@ coda_assure_lock(struct vnode *vp, int locktype, int line, const char *func)
         
         if(lockstatus(lkp, p))
         {
-            myprintf(("Lock ERROR: Vnode at %p IS LOCKED but not by %d/%p\n",vp,pid,thread));
+            myprintf(("LOCK ERROR: Vnode at %p IS LOCKED but not by %d/%p\n",vp,pid,thread));
             return;
         }
         else
@@ -348,7 +349,6 @@ coda_open(v)
     ino_t inode;
 
     ENTRY;
-    ASSURE_LOCKED(vp);
     MARK_ENTRY(CODA_OPEN_STATS);
 
     /* Check for open of control file. */
@@ -356,20 +356,17 @@ coda_open(v)
 	/* XXX */
 	/* if (WRITEABLE(flag)) */ 
 	if (flag & (FWRITE | O_TRUNC | O_CREAT | O_EXCL)) {
-	    MARK_INT_FAIL(CODA_OPEN_STATS);
-            ASSURE_LOCKED(vp);
-	    return(EACCES);
+	    MARK_INT_FAIL(CODA_OPEN_STATS);	    
+            return(EACCES);
 	}
-	MARK_INT_SAT(CODA_OPEN_STATS);
-        ASSURE_LOCKED(vp);
-	LEAVE;
+	MARK_INT_SAT(CODA_OPEN_STATS);	
+        LEAVE;
 	return(0);
     }
 
     error = venus_open(vtomi((*vpp)), &cp->c_fid, flag, cred, THREAD2PROC, &dev, &inode);
     if (error)
     {
-        ASSURE_LOCKED(vp);
 	LEAVE;
 	return (error);
     }
@@ -1171,8 +1168,8 @@ coda_inactive(v)
 	}
 #endif
         if (coda_lockdebug) {
-        myprintf(("Will attempt unlock on %p from %s line %d\n",vp,__func__,__LINE__));
-            }
+            myprintf(("Will attempt unlock on %p from %s line %d\n",vp,__func__,__LINE__));
+        }
 	VOP_UNLOCK(vp, 0, td);
 	vgone(vp);
     }
@@ -1272,7 +1269,7 @@ coda_lookup(v)
 #endif
 #define DENY_ROOT_CREATES
 #ifdef DENY_ROOT_CREATES
-    if ( (cnp->cn_nameiop == CREATE) || (cnp->cn_nameiop == RENAME) && dvp->v_vflag & VV_ROOT ) 
+    if ( ((cnp->cn_nameiop == CREATE) || (cnp->cn_nameiop == RENAME)) && (dvp->v_vflag & VV_ROOT) ) 
     {
         
         myprintf(("Denying create in /coda entry %s from venus access\n", nm));
@@ -1457,7 +1454,7 @@ coda_lookup(v)
         *vpp = NULL;
     }
 lockcheck:
-    myprintf(("Lookup lock check 2: vp=%p, dvp=%p, error=%d, cn_flags=%p\n",*vpp,dvp,cnp->cn_flags));
+    myprintf(("Lookup lock check 2: vp=%p, dvp=%p, error=%d, cn_flags=%p\n",*vpp,dvp,error,cnp->cn_flags));
     if(error && (error != EJUSTRETURN))
     {
         ASSURE_LOCKED(dvp);
@@ -1503,7 +1500,7 @@ coda_create(v)
     CodaFid VFid;
     struct vattr attr;
 
-    ENTRY;
+    ENTRY;    
     ASSURE_LOCKED(dvp);
     MARK_ENTRY(CODA_CREATE_STATS);
 
@@ -1514,8 +1511,8 @@ coda_create(v)
     if (IS_CTL_NAME(dvp, nm, len)) {
 	*vpp = (struct vnode *)0;
 	MARK_INT_FAIL(CODA_CREATE_STATS);
-        ASSURE_LOCKED(dvp);
-        ASSURE_LOCKED(*vpp);
+        vput(dvp);
+        ASSURE_UNLOCKED(dvp);
 	LEAVE; 
 	return(EACCES);
     } 
@@ -1525,16 +1522,10 @@ coda_create(v)
     {
         
         myprintf(("Denying create in /coda entry %s from venus access\n", nm));
-/*        if(coda_islockedbyme(dvp))
-        {
-        //    myprintf(("coda_create: Deliberately unlocking %p\n",dvp));
-         //   VOP_UNLOCK(dvp,0,td);
-        }
-*/
-        *vpp = (struct vnode *)0;
 
-        ASSURE_LOCKED(dvp);
-//        ASSURE_LOCKED(*vpp);
+        *vpp = (struct vnode *)0;
+        vput(dvp);
+        ASSURE_UNLOCKED(dvp);
         LEAVE;
         return EACCES;
     }
@@ -1554,8 +1545,8 @@ coda_create(v)
 	cp = make_coda_node(&VFid, dvp->v_mount, attr.va_type);
 	if (cp == 0 ) 
 	{
-            ASSURE_LOCKED(dvp);
-            ASSURE_LOCKED(*vpp);
+            vput(dvp);
+            ASSURE_UNLOCKED(dvp);
 	    LEAVE;
 	    return ENOMEM;
 	}
@@ -1589,6 +1580,7 @@ coda_create(v)
     if (!error) {
 	if (cnp->cn_flags & LOCKLEAF) {
             
+#ifndef USE_VGET
             if (coda_lockdebug) {
                 myprintf(("Will attempt lock on %p from %s line %d\n",*ap->a_vpp,__func__,__LINE__));
             }
@@ -1596,6 +1588,10 @@ coda_create(v)
 		printf("coda_create: ");
 		panic(" couldn't lock child");
 	    }
+#else /* ! USE_VGET */
+            vget(*ap->a_vpp, LK_EXCLUSIVE, td);
+#endif /* ! USE VGET */
+
 	}
 #ifdef OLD_DIAGNOSTIC
 	else {
@@ -1603,8 +1599,10 @@ coda_create(v)
 	}
 #endif
     }
-    ASSURE_LOCKED(dvp);
-    ASSURE_LOCKED(*vpp);
+    vput(dvp);
+    ASSURE_UNLOCKED(dvp);
+    if(*vpp)
+        ASSURE_LOCKED(*vpp);
     LEAVE;
     return(error);
 }
