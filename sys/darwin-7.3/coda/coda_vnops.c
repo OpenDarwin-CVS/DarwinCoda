@@ -829,10 +829,9 @@ coda_getattr(v)
 
     /* Check to see if the attributes have already been cached */
     if (VALID_VATTR(cp)) { 
-	CODADEBUG(CODA_GETATTR, { myprintf(("attr cache hit: %s\n",
-					coda_f2s(&cp->c_fid)));});
-	CODADEBUG(CODA_GETATTR, if (!(codadebug & ~CODA_GETATTR))
-		 print_vattr(&cp->c_vattr); );
+	CODADEBUG(CODA_GETATTR, { myprintf(("\nattr cache hit: %s vp=%p\n",
+					coda_f2s(&cp->c_fid),vp));});
+	CODADEBUG(CODA_GETATTR, print_vattr(&cp->c_vattr); );
 	
 	*vap = cp->c_vattr;
 	MARK_INT_SAT(CODA_GETATTR_STATS);
@@ -844,11 +843,10 @@ coda_getattr(v)
     error = venus_getattr(vtomi(vp), &cp->c_fid, cred, THREAD2PROC, vap);
 
     if (!error) {
-	CODADEBUG(CODA_GETATTR, myprintf(("getattr miss %s: result %d\n",
-				     coda_f2s(&cp->c_fid), error)); )	       
+	CODADEBUG(CODA_GETATTR, myprintf(("getattr miss %s vp=%p: result %d\n",
+                                          coda_f2s(&cp->c_fid),vp, error)); );	       
 	    
-	CODADEBUG(CODA_GETATTR, if (!(codadebug & ~CODA_GETATTR))
-		 print_vattr(vap);	);
+	CODADEBUG(CODA_GETATTR, print_vattr(vap););
 	
     {	
 #ifndef vnode_pager_setsize
@@ -900,6 +898,7 @@ coda_setattr(v)
     }
 
     if (codadebug & CODADBGMSK(CODA_SETATTR)) {
+        myprintf(("\nSetting attributes on vp=%p:\n",vp));
 	print_vattr(vap);
     }
     error = venus_setattr(vtomi(vp), &cp->c_fid, vap, cred, THREAD2PROC);
@@ -1125,7 +1124,7 @@ coda_inactive(v)
 
     ENTRY;
     ASSURE_LOCKED(vp);
-   // myprintf(("coda_inactive vp=%p=%s\n",vp,coda_vp_name(vp)));
+    myprintf(("coda_inactive vp=%p=%s\n",vp,coda_vp_name(vp)));
     /* We don't need to send inactive to venus - DCS */
     MARK_ENTRY(CODA_INACTIVE_STATS);
 
@@ -1155,13 +1154,13 @@ coda_inactive(v)
 	panic("badness in coda_inactive\n");
     }
 
-    if (IS_UNMOUNTING(cp)) {
-#ifdef	DEBUG
-	printf("coda_inactive: IS_UNMOUNTING use %d: vp %p, cp %p\n", vrefcnt(vp), vp, cp);
+    if (IS_UNMOUNTING(cp)) 
+    {
+	myprintf(("coda_inactive: IS_UNMOUNTING use %d: vp %p, cp %p\n", vrefcnt(vp), vp, cp));
 	if (cp->c_ovp != NULL)
 	    printf("coda_inactive: cp->ovp != NULL use %d: vp %p, cp %p\n",
-	    	   vrefcnt(vp), vp, cp);
-#endif
+                   vrefcnt(vp), vp, cp);
+        
 	lockmgr(&cp->c_lock, LK_RELEASE, &vp->v_interlock, td);
     } else {
 #ifdef OLD_DIAGNOSTIC
@@ -2433,22 +2432,19 @@ print_vattr( attr )
     }
 
 
-    myprintf(("attr: type %s mode %d uid %d gid %d fsid %d rdev %d\n",
+    myprintf(("attr: type %s mode %o uid %d gid %d fsid %p rdev %d\n",
 	      typestr, (int)attr->va_mode, (int)attr->va_uid,
 	      (int)attr->va_gid, (int)attr->va_fsid, (int)attr->va_rdev));
 
-    myprintf(("      fileid %d nlink %d size %d blocksize %d bytes %d\n",
-	      (int)attr->va_fileid, (int)attr->va_nlink, 
+    myprintf(("      fileid %u nlink %d size %d blocksize %d bytes %d\n",
+	      (unsigned int)attr->va_fileid, (int)attr->va_nlink, 
 	      (int)attr->va_size,
 	      (int)attr->va_blocksize,(int)attr->va_bytes));
-    myprintf(("      gen %ld flags %ld vaflags %d\n",
-	      attr->va_gen, attr->va_flags, attr->va_vaflags));
-    myprintf(("      atime sec %d nsec %d\n",
-	      (int)attr->va_atime.tv_sec, (int)attr->va_atime.tv_nsec));
-    myprintf(("      mtime sec %d nsec %d\n",
-	      (int)attr->va_mtime.tv_sec, (int)attr->va_mtime.tv_nsec));
-    myprintf(("      ctime sec %d nsec %d\n",
-	      (int)attr->va_ctime.tv_sec, (int)attr->va_ctime.tv_nsec));
+    myprintf(("      gen %ld flags %ld vaflags %d\n", attr->va_gen, attr->va_flags, attr->va_vaflags));
+    myprintf(("      atime sec %d nsec %d\n", (int)attr->va_atime.tv_sec, (int)attr->va_atime.tv_nsec));
+    myprintf(("      mtime sec %d nsec %d\n", (int)attr->va_mtime.tv_sec, (int)attr->va_mtime.tv_nsec));
+    myprintf(("      ctime sec %d nsec %d\n", (int)attr->va_ctime.tv_sec, (int)attr->va_ctime.tv_nsec));
+    myprintf(("      filerev %d vaflags %d spare %p\n\n", (int)attr->va_filerev, (int) attr->va_flags, (long) attr->va_spare));
 }
 
 /* How to print a ucred */
