@@ -54,15 +54,21 @@ __FBSDID("$FreeBSD: src/sys/coda/coda_vnops.c,v 1.51 2003/09/07 07:43:09 tjr Exp
 #include <sys/malloc.h>
 #include <sys/file.h>		/* Must come after sys/malloc.h */
 #include <sys/mount.h>
+#ifndef DARWIN
 #include <sys/mutex.h>
+#endif /* !DARWIN */
 #include <sys/namei.h>
 #include <sys/proc.h>
 #include <sys/uio.h>
 #include <sys/unistd.h>
 
+#ifdef DARWIN
+#include <sys/vm.h>
+#else /* !DARWIN */
 #include <vm/vm.h>
 #include <vm/vm_object.h>
 #include <vm/vm_extern.h>
+#endif /* !DARWIN */
 
 #include <coda/coda.h>
 #include <coda/cnode.h>
@@ -140,12 +146,14 @@ struct vnodeopv_entry_desc coda_vnodeop_entries[] = {
     { &vop_pathconf_desc, coda_pathconf },	/* pathconf */
     { &vop_advlock_desc, coda_vop_nop },	/* advlock */
     { &vop_lease_desc, coda_vop_nop },		/* lease */
+#ifndef DARWIN
     { &vop_poll_desc, (vop_t *) vop_stdpoll },
     { &vop_getpages_desc, (vop_t*)vop_stdgetpages },	/* pager intf.*/
     { &vop_putpages_desc, (vop_t*)vop_stdputpages },	/* pager intf.*/
     { &vop_createvobject_desc, (vop_t*)vop_stdcreatevobject },
     { &vop_destroyvobject_desc, (vop_t*)vop_stddestroyvobject },
     { &vop_getvobject_desc, (vop_t*)vop_stdgetvobject },
+
 
 #if	0
 
@@ -167,6 +175,9 @@ struct vnodeopv_entry_desc coda_vnodeop_entries[] = {
     { &vop_getvobject_desc,     (vop_t *) vop_stdgetvobject },	
     { &vop_getwritemount_desc,	(vop_t *) vop_stdgetwritemount },
     { (struct vnodeop_desc*)NULL, (int(*)(void *))NULL }
+#else /* DARWIN */
+    { (const struct vnodeop_desc*)NULL, (int(*)(void *))NULL }
+#endif /* DARWIN */
 };
 
 static struct vnodeopv_desc coda_vnodeop_opv_desc =
@@ -818,7 +829,7 @@ coda_fsync(v)
     struct vnode *vp = ap->a_vp;
     struct cnode *cp = VTOC(vp);
     struct ucred *cred = ap->a_cred;
-    THREADHANDL. *td = ap->a_td;
+    THREAD *td = ap->a_td;
 /* locals */
     struct vnode *convp = cp->c_ovp;
     int error;
@@ -967,7 +978,7 @@ coda_lookup(v)
      */
     struct componentname  *cnp = ap->a_cnp;
     struct ucred *cred = cnp->cn_cred;
-    THREADHANDL. *td = cnp->cn_thread;
+    THREAD *td = cnp->cn_thread;
 /* locals */
     struct cnode *cp;
     const char *nm = cnp->cn_nameptr;
@@ -1209,7 +1220,7 @@ coda_remove(v)
     struct cnode *cp = VTOC(dvp);
     struct componentname  *cnp = ap->a_cnp;
     struct ucred *cred = cnp->cn_cred;
-    THREADHANDL. *td = cnp->cn_thread;
+    THREAD *td = cnp->cn_thread;
 /* locals */
     int error;
     const char *nm = cnp->cn_nameptr;
@@ -1414,7 +1425,7 @@ coda_mkdir(v)
     register struct vattr *va = ap->a_vap;
     struct vnode **vpp = ap->a_vpp;
     struct ucred *cred = cnp->cn_cred;
-    THREADHANDL. *td = cnp->cn_thread;
+    THREAD *td = cnp->cn_thread;
 /* locals */
     int error;
     const char *nm = cnp->cn_nameptr;
@@ -1534,7 +1545,7 @@ coda_symlink(v)
     struct vattr *tva = ap->a_vap;
     char *path = ap->a_target;
     struct ucred *cred = cnp->cn_cred;
-    THREADHANDL. *td = cnp->cn_thread;
+    THREAD *td = cnp->cn_thread;
     struct vnode **vpp = ap->a_vpp;
 /* locals */
     int error;
@@ -1681,7 +1692,7 @@ coda_bmap(v)
     daddr_t bn __attribute__((unused)) = ap->a_bn;	/* fs block number */
     struct vnode **vpp = ap->a_vpp;			/* RETURN vp of device */
     daddr_t *bnp __attribute__((unused)) = ap->a_bnp;	/* RETURN device block number */
-    THREADHANDL. *td __attribute__((unused)) = CURTHREAD;
+    THREAD *td __attribute__((unused)) = CURTHREAD;
 /* upcall decl */
 /* locals */
 
