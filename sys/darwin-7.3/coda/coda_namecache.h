@@ -50,9 +50,13 @@
  * Coda constants
  */
 #define CODA_NC_NAMELEN	15		/* longest name stored in cache */
-#define CODA_NC_CACHESIZE 256		/* Default cache size */
-#define CODA_NC_HASHSIZE	64		/* Must be multiple of 2 */
+#ifdef DARWIN
+#define CODA_NC_CACHESIZE 128		/* Default cache size (less in Darwin, don't know why, but 256 panics */
+#else /* !DARWIN */
+#define CODA_NC_CACHESIZE 256           /* Default cache size */
+#endif /* !DARWIN */
 
+#define CODA_NC_HASHSIZE	64		/* Must be multiple of 2 */
 /*
  * Hash function for the primary hash.
  */
