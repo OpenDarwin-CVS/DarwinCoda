@@ -64,6 +64,7 @@ __FBSDID("$FreeBSD: src/sys/coda/coda_vnops.c,v 1.51 2003/09/07 07:43:09 tjr Exp
 
 #ifdef DARWIN
 #include <sys/vm.h>
+#include <sys/ubc.h>
 #else /* !DARWIN */
 #include <vm/vm.h>
 #include <vm/vm_object.h>
@@ -78,6 +79,9 @@ __FBSDID("$FreeBSD: src/sys/coda/coda_vnops.c,v 1.51 2003/09/07 07:43:09 tjr Exp
 #include <coda/coda_subr.h>
 #include <coda/coda_namecache.h>
 #include <coda/coda_pioctl.h>
+#ifdef DARWIN
+#include <coda/coda_vnode_if.h>
+#endif /* DARWIN */
 
 /* 
  * These flags select various performance enhancements.
@@ -101,7 +105,10 @@ int coda_vnop_print_entry = 0;
 static int coda_lockdebug = 0;
 
 /* Definition of the vfs operation vector */
-static int (**coda_vnodeop_p)(void *);
+#ifndef DARWIN
+static 
+#endif /* !DARWIN */
+int (**coda_vnodeop_p)(void *);
 
 /*
  * Some NetBSD details:
@@ -176,12 +183,16 @@ struct vnodeopv_entry_desc coda_vnodeop_entries[] = {
     { &vop_getwritemount_desc,	(vop_t *) vop_stdgetwritemount },
     { (struct vnodeop_desc*)NULL, (int(*)(void *))NULL }
 #else /* DARWIN */
-    { (const struct vnodeop_desc*)NULL, (int(*)(void *))NULL }
+    { ( struct vnodeop_desc*) NULL, (int(*)(void *))NULL }
 #endif /* DARWIN */
 };
 
-static struct vnodeopv_desc coda_vnodeop_opv_desc =
+#ifndef DARWIN
+static
+#endif /* !DARWIN */
+struct vnodeopv_desc coda_vnodeop_opv_desc =
 		{ &coda_vnodeop_p, coda_vnodeop_entries };
+
 
 VNODEOP_SET(coda_vnodeop_opv_desc);
 
@@ -307,7 +318,11 @@ coda_open(v)
     cp->c_inode = inode;
 
     /* Open the cache file. */
+#ifdef DARWIN
+    error = VOP_OPEN(vp, flag, cred, td); 
+#else /* !DARWIN */
     error = VOP_OPEN(vp, flag, cred, td, -1); 
+#endif /* !DARWIN */
     if (error) {
     	printf("coda_open: VOP_OPEN on container failed %d\n", error);
 	return (error);
@@ -477,8 +492,13 @@ coda_rdwr(vp, uiop, rw, ioflag, cred, td)
 	else {
 	    opened_internally = 1;
 	    MARK_INT_GEN(CODA_OPEN_STATS);
+#ifdef DARWIN
+            error = VOP_OPEN(vp, (rw == UIO_READ ? FREAD : FWRITE), 
+			     cred, td);
+#else /* ! DARWIN */
 	    error = VOP_OPEN(vp, (rw == UIO_READ ? FREAD : FWRITE), 
 			     cred, td, -1);
+#endif /* !DARWIN */
 printf("coda_rdwr: Internally Opening %p\n", vp);
 	    if (error) {
 		printf("coda_rdwr: VOP_OPEN on container failed %d\n", error);
@@ -570,8 +590,11 @@ coda_ioctl(v)
 
     /* Should we use the name cache here? It would get it from
        lookupname sooner or later anyway, right? */
-
+#ifdef DARWIN
+    NDINIT(&ndp, LOOKUP, (iap->follow ? FOLLOW : NOFOLLOW), UIO_USERSPACE, (caddr_t)iap->path, td);
+#else /* !DARWIN */
     NDINIT(&ndp, LOOKUP, (iap->follow ? FOLLOW : NOFOLLOW), UIO_USERSPACE, iap->path, td);
+#endif
     error = namei(&ndp);
     tvp = ndp.ni_vp;
 
@@ -1642,7 +1665,11 @@ coda_readdir(v)
 	if (cp->c_ovp == NULL) {
 	    opened_internally = 1;
 	    MARK_INT_GEN(CODA_OPEN_STATS);
+#ifdef DARWIN
+	    error = VOP_OPEN(vp, FREAD, cred, td);
+#else /* !DARWIN */
 	    error = VOP_OPEN(vp, FREAD, cred, td, -1);
+#endif /* !DARWIN */
 printf("coda_readdir: Internally Opening %p\n", vp);
 	    if (error) {
 		printf("coda_readdir: VOP_OPEN on container failed %d\n", error);
@@ -1702,7 +1729,11 @@ coda_bmap(v)
 	cp = VTOC(vp);
 	if (cp->c_ovp) {
 		return EINVAL;
+#ifdef DARWIN
+                ret =  VOP_BMAP(cp->c_ovp, bn, vpp, bnp, ap->a_runp);
+#else /* !DARWIN */
 		ret =  VOP_BMAP(cp->c_ovp, bn, vpp, bnp, ap->a_runp, ap->a_runb);
+#endif /* !DARWIN */
 #if	0
 		printf("VOP_BMAP(cp->c_ovp %p, bn %p, vpp %p, bnp %lld, ap->a_runp %p, ap->a_runb %p) = %d\n",
 			cp->c_ovp, bn, vpp, bnp, ap->a_runp, ap->a_runb, ret);
@@ -1830,7 +1861,11 @@ coda_grab_vnode(dev_t dev, ino_t ino, struct vnode **vpp)
     }
 
     /* XXX - ensure that nonzero-return means failure */
+#ifdef DARWIN
+    error = VFS_VGET(mp,&ino,vpp);
+#else /* !DARWIN */
     error = VFS_VGET(mp,ino,LK_EXCLUSIVE,vpp);
+#endif /*^!DARWIN */
     if (error) {
 	myprintf(("coda_grab_vnode: iget/vget(%lx, %lu) returns %p, err %d\n", 
 		  (u_long)dev2udev(dev), (u_long)ino, (void *)*vpp, error));
@@ -1940,7 +1975,11 @@ make_coda_node(fid, vfsp, type)
 	    panic("coda: getnewvnode returned error %d\n", err);   
 	}                                                         
 	vp->v_data = cp;                                          
-	vp->v_type = type;                                      
+	vp->v_type = type;
+#ifdef DARWIN
+        if (type == VREG) 
+            ubc_info_init(vp);
+#endif /* DARWIN */
 	cp->c_vnode = vp;                                         
 	coda_save(cp);
 	
@@ -1971,7 +2010,11 @@ coda_pathconf(v)
 		*retval = CODA_MAXPATHLEN;
 		break;
 	default:
+#ifdef DARWIN
+                error = CODA_VOP_PATHCONF((struct vnode *) ap, ap->a_name, &error);
+#else /* !DARWIN */
 		error = vop_stdpathconf(ap);
+#endif /* !DARWIN */
 		break;
 	}
 
