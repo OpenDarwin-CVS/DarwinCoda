@@ -234,7 +234,7 @@ coda_open(v)
     struct cnode *cp = VTOC(*vpp);
     int flag = ap->a_mode & (~O_EXCL);
     struct ucred *cred = ap->a_cred;
-    struct thread *td = ap->a_td;
+    THREAD *td = ap->a_td;
 /* locals */
     int error;
     struct vnode *vp;
@@ -255,7 +255,7 @@ coda_open(v)
 	return(0);
     }
 
-    error = venus_open(vtomi((*vpp)), &cp->c_fid, flag, cred, td->td_proc, &dev, &inode);
+    error = venus_open(vtomi((*vpp)), &cp->c_fid, flag, cred, THREAD2PROC, &dev, &inode);
     if (error)
 	return (error);
     if (!error) {
@@ -326,7 +326,7 @@ coda_close(v)
     struct cnode *cp = VTOC(vp);
     int flag = ap->a_fflag;
     struct ucred *cred = ap->a_cred;
-    struct thread *td = ap->a_td;
+    THREAD *td = ap->a_td;
 /* locals */
     int error;
 
@@ -367,7 +367,7 @@ coda_close(v)
     if (flag & FWRITE)                    /* file was opened for write */
 	--cp->c_owrite;
 
-    error = venus_close(vtomi(vp), &cp->c_fid, flag, cred, td->td_proc);
+    error = venus_close(vtomi(vp), &cp->c_fid, flag, cred, THREAD2PROC);
     vrele(CTOV(cp));
 
     CODADEBUG(CODA_CLOSE, myprintf(("close: result %d\n",error)); )
@@ -403,15 +403,15 @@ coda_rdwr(vp, uiop, rw, ioflag, cred, td)
     enum uio_rw rw;
     int ioflag;
     struct ucred *cred;
-    struct thread *td;
+    THREAD *td;
 { 
 /* upcall decl */
   /* NOTE: container file operation!!! */
 /* locals */
     struct cnode *cp = VTOC(vp);
     struct vnode *cfvp = cp->c_ovp;
-    struct proc *p = td->td_proc;
-    struct thread *ltd = td;
+    struct proc *p = THREAD2PROC;
+    THREAD *ltd = td;
     int igot_internally = 0;
     int opened_internally = 0;
     int error = 0;
@@ -448,7 +448,7 @@ coda_rdwr(vp, uiop, rw, ioflag, cred, td)
 	    PROC_UNLOCK(p);
 	}
 	else
-	    ltd = curthread; 
+	    ltd = CURTHREAD; 
 
 	if (cp->c_inode != 0 && !iscore) {
 	    igot_internally = 1;
@@ -535,7 +535,7 @@ coda_ioctl(v)
     caddr_t data = ap->a_data;
     int flag = ap->a_fflag;
     struct ucred *cred = ap->a_cred;
-    struct thread *td = ap->a_td;
+    THREAD *td = ap->a_td;
 /* locals */
     int error;
     struct vnode *tvp;
@@ -589,7 +589,7 @@ coda_ioctl(v)
 	NDFREE(&ndp, 0);
 	return(EINVAL);
     }
-    error = venus_ioctl(vtomi(tvp), &((VTOC(tvp))->c_fid), com, flag, data, cred, td->td_proc);
+    error = venus_ioctl(vtomi(tvp), &((VTOC(tvp))->c_fid), com, flag, data, cred, THREAD2PROC);
 
     if (error)
 	MARK_INT_FAIL(CODA_IOCTL_STATS);
@@ -620,7 +620,7 @@ coda_getattr(v)
     struct cnode *cp = VTOC(vp);
     struct vattr *vap = ap->a_vap;
     struct ucred *cred = ap->a_cred;
-    struct thread *td = ap->a_td;
+    THREAD *td = ap->a_td;
 /* locals */
     int error;
 
@@ -647,7 +647,7 @@ coda_getattr(v)
 	return(0);
     }
 
-    error = venus_getattr(vtomi(vp), &cp->c_fid, cred, td->td_proc, vap);
+    error = venus_getattr(vtomi(vp), &cp->c_fid, cred, THREAD2PROC, vap);
 
     if (!error) {
 	CODADEBUG(CODA_GETATTR, myprintf(("getattr miss %s: result %d\n",
@@ -682,7 +682,7 @@ coda_setattr(v)
     struct cnode *cp = VTOC(vp);
     register struct vattr *vap = ap->a_vap;
     struct ucred *cred = ap->a_cred;
-    struct thread *td = ap->a_td;
+    THREAD *td = ap->a_td;
 /* locals */
     int error;
 
@@ -697,7 +697,7 @@ coda_setattr(v)
     if (codadebug & CODADBGMSK(CODA_SETATTR)) {
 	print_vattr(vap);
     }
-    error = venus_setattr(vtomi(vp), &cp->c_fid, vap, cred, td->td_proc);
+    error = venus_setattr(vtomi(vp), &cp->c_fid, vap, cred, THREAD2PROC);
 
     if (!error)
 	cp->c_flags &= ~C_VATTR;
@@ -722,7 +722,7 @@ coda_access(v)
     struct cnode *cp = VTOC(vp);
     int mode = ap->a_mode;
     struct ucred *cred = ap->a_cred;
-    struct thread *td = ap->a_td;
+    THREAD *td = ap->a_td;
 /* locals */
     int error;
 
@@ -751,7 +751,7 @@ coda_access(v)
 	}
     }
 
-    error = venus_access(vtomi(vp), &cp->c_fid, mode, cred, td->td_proc);
+    error = venus_access(vtomi(vp), &cp->c_fid, mode, cred, THREAD2PROC);
 
     return(error);
 }
@@ -766,7 +766,7 @@ coda_readlink(v)
     struct cnode *cp = VTOC(vp);
     struct uio *uiop = ap->a_uio;
     struct ucred *cred = ap->a_cred;
-    struct thread *td = ap->a_uio->uio_td;
+    THREAD *td = ap->a_uio->uio_td;
 /* locals */
     int error;
     char *str;
@@ -791,7 +791,7 @@ coda_readlink(v)
     }
 
     error = venus_readlink(vtomi(vp), &cp->c_fid, cred,
-        td != NULL ? td->td_proc : NULL, &str, &len);
+        td != NULL ? THREAD2PROC : NULL, &str, &len);
 
     if (!error) {
 	uiop->uio_rw = UIO_READ;
@@ -818,7 +818,7 @@ coda_fsync(v)
     struct vnode *vp = ap->a_vp;
     struct cnode *cp = VTOC(vp);
     struct ucred *cred = ap->a_cred;
-    struct thread *td = ap->a_td;
+    THREADHANDL. *td = ap->a_td;
 /* locals */
     struct vnode *convp = cp->c_ovp;
     int error;
@@ -869,7 +869,7 @@ coda_fsync(v)
 
     /* needs research */
     return 0;
-    error = venus_fsync(vtomi(vp), &cp->c_fid, cred, td->td_proc);
+    error = venus_fsync(vtomi(vp), &cp->c_fid, cred, THREAD2PROC);
 
     CODADEBUG(CODA_FSYNC, myprintf(("in fsync result %d\n",error)); );
     return(error);
@@ -886,7 +886,7 @@ coda_inactive(v)
     struct vnode *vp = ap->a_vp;
     struct cnode *cp = VTOC(vp);
     struct ucred *cred __attribute__((unused)) = NULL;
-    struct thread *td __attribute__((unused)) = curthread;
+    THREAD *td __attribute__((unused)) = CURTHREAD;
 /* upcall decl */
 /* locals */
 
@@ -967,7 +967,7 @@ coda_lookup(v)
      */
     struct componentname  *cnp = ap->a_cnp;
     struct ucred *cred = cnp->cn_cred;
-    struct thread *td = cnp->cn_thread;
+    THREADHANDL. *td = cnp->cn_thread;
 /* locals */
     struct cnode *cp;
     const char *nm = cnp->cn_nameptr;
@@ -1009,7 +1009,7 @@ coda_lookup(v)
     } else {
 	
 	/* The name wasn't cached, so we need to contact Venus */
-	error = venus_lookup(vtomi(dvp), &dcp->c_fid, nm, len, cred, td->td_proc, &VFid, &vtype);
+	error = venus_lookup(vtomi(dvp), &dcp->c_fid, nm, len, cred, THREAD2PROC, &VFid, &vtype);
 	
 	if (error) {
 	    MARK_INT_FAIL(CODA_LOOKUP_STATS);
@@ -1125,7 +1125,7 @@ coda_create(v)
     struct vnode **vpp = ap->a_vpp;
     struct componentname  *cnp = ap->a_cnp;
     struct ucred *cred = cnp->cn_cred;
-    struct thread *td = cnp->cn_thread;
+    THREAD *td = cnp->cn_thread;
 /* locals */
     int error;
     struct cnode *cp;
@@ -1146,7 +1146,7 @@ coda_create(v)
 	return(EACCES);
     }
 
-    error = venus_create(vtomi(dvp), &dcp->c_fid, nm, len, exclusive, mode, va, cred, td->td_proc, &VFid, &attr);
+    error = venus_create(vtomi(dvp), &dcp->c_fid, nm, len, exclusive, mode, va, cred, THREAD2PROC, &VFid, &attr);
 
     if (!error) {
 	
@@ -1209,7 +1209,7 @@ coda_remove(v)
     struct cnode *cp = VTOC(dvp);
     struct componentname  *cnp = ap->a_cnp;
     struct ucred *cred = cnp->cn_cred;
-    struct thread *td = cnp->cn_thread;
+    THREADHANDL. *td = cnp->cn_thread;
 /* locals */
     int error;
     const char *nm = cnp->cn_nameptr;
@@ -1250,7 +1250,7 @@ coda_remove(v)
 	return(ENOENT);
     }
 
-    error = venus_remove(vtomi(dvp), &cp->c_fid, nm, len, cred, td->td_proc);
+    error = venus_remove(vtomi(dvp), &cp->c_fid, nm, len, cred, THREAD2PROC);
 
     CODADEBUG(CODA_REMOVE, myprintf(("in remove result %d\n",error)); )
 
@@ -1269,7 +1269,7 @@ coda_link(v)
     struct cnode *tdcp = VTOC(tdvp);
     struct componentname *cnp = ap->a_cnp;
     struct ucred *cred = cnp->cn_cred;
-    struct thread *td = cnp->cn_thread;
+    THREAD *td = cnp->cn_thread;
 /* locals */
     int error;
     const char *nm = cnp->cn_nameptr;
@@ -1296,7 +1296,7 @@ coda_link(v)
 	return(EACCES);
     }
 
-    error = venus_link(vtomi(vp), &cp->c_fid, &tdcp->c_fid, nm, len, cred, td->td_proc);
+    error = venus_link(vtomi(vp), &cp->c_fid, &tdcp->c_fid, nm, len, cred, THREAD2PROC);
 
     /* Invalidate the parent's attr cache, the modification time has changed */
     VTOC(tdvp)->c_flags &= ~C_VATTR;
@@ -1320,7 +1320,7 @@ coda_rename(v)
     struct cnode *ndcp = VTOC(ndvp);
     struct componentname  *tcnp = ap->a_tcnp;
     struct ucred *cred = fcnp->cn_cred;
-    struct thread *td = fcnp->cn_thread;
+    THREAD *td = fcnp->cn_thread;
 /* true args */
     int error;
     const char *fnm = fcnp->cn_nameptr;
@@ -1377,7 +1377,7 @@ coda_rename(v)
 	goto exit;
     }
 
-    error = venus_rename(vtomi(odvp), &odcp->c_fid, &ndcp->c_fid, fnm, flen, tnm, tlen, cred, td->td_proc);
+    error = venus_rename(vtomi(odvp), &odcp->c_fid, &ndcp->c_fid, fnm, flen, tnm, tlen, cred, THREAD2PROC);
 
  exit:
     CODADEBUG(CODA_RENAME, myprintf(("in rename result %d\n",error));)
@@ -1414,7 +1414,7 @@ coda_mkdir(v)
     register struct vattr *va = ap->a_vap;
     struct vnode **vpp = ap->a_vpp;
     struct ucred *cred = cnp->cn_cred;
-    struct thread *td = cnp->cn_thread;
+    THREADHANDL. *td = cnp->cn_thread;
 /* locals */
     int error;
     const char *nm = cnp->cn_nameptr;
@@ -1438,7 +1438,7 @@ coda_mkdir(v)
 	return(EACCES);
     }
 
-    error = venus_mkdir(vtomi(dvp), &dcp->c_fid, nm, len, va, cred, td->td_proc, &VFid, &ova);
+    error = venus_mkdir(vtomi(dvp), &dcp->c_fid, nm, len, va, cred, THREAD2PROC, &VFid, &ova);
 
     if (!error) {
 	if (coda_find(&VFid) != NULL)
@@ -1483,7 +1483,7 @@ coda_rmdir(v)
     struct cnode *dcp = VTOC(dvp);
     struct componentname  *cnp = ap->a_cnp;
     struct ucred *cred = cnp->cn_cred;
-    struct thread *td = cnp->cn_thread;
+    THREAD *td = cnp->cn_thread;
 /* true args */
     int error;
     const char *nm = cnp->cn_nameptr;
@@ -1515,7 +1515,7 @@ coda_rmdir(v)
     /* Invalidate the parent's attr cache, the modification time has changed */
     dcp->c_flags &= ~C_VATTR;
 
-    error = venus_rmdir(vtomi(dvp), &dcp->c_fid, nm, len, cred, td->td_proc);
+    error = venus_rmdir(vtomi(dvp), &dcp->c_fid, nm, len, cred, THREAD2PROC);
 
     CODADEBUG(CODA_RMDIR, myprintf(("in rmdir result %d\n", error)); )
 
@@ -1534,7 +1534,7 @@ coda_symlink(v)
     struct vattr *tva = ap->a_vap;
     char *path = ap->a_target;
     struct ucred *cred = cnp->cn_cred;
-    struct thread *td = cnp->cn_thread;
+    THREADHANDL. *td = cnp->cn_thread;
     struct vnode **vpp = ap->a_vpp;
 /* locals */
     int error;
@@ -1577,7 +1577,7 @@ coda_symlink(v)
 	goto exit;
     }
 
-    error = venus_symlink(vtomi(tdvp), &tdcp->c_fid, path, plen, nm, len, tva, cred, td->td_proc);
+    error = venus_symlink(vtomi(tdvp), &tdcp->c_fid, path, plen, nm, len, tva, cred, THREAD2PROC);
 
     /* Invalidate the parent's attr cache, the modification time has changed */
     tdcp->c_flags &= ~C_VATTR;
@@ -1606,7 +1606,7 @@ coda_readdir(v)
     int *eofflag = ap->a_eofflag;
     u_long **cookies = ap->a_cookies;
     int *ncookies = ap->a_ncookies;
-    struct thread *td = ap->a_uio->uio_td;
+    THREAD *td = ap->a_uio->uio_td;
 /* upcall decl */
 /* locals */
     int error = 0;
@@ -1681,7 +1681,7 @@ coda_bmap(v)
     daddr_t bn __attribute__((unused)) = ap->a_bn;	/* fs block number */
     struct vnode **vpp = ap->a_vpp;			/* RETURN vp of device */
     daddr_t *bnp __attribute__((unused)) = ap->a_bnp;	/* RETURN device block number */
-    struct thread *td __attribute__((unused)) = curthread;
+    THREADHANDL. *td __attribute__((unused)) = CURTHREAD;
 /* upcall decl */
 /* locals */
 
@@ -1752,7 +1752,7 @@ coda_lock(v)
     struct vop_lock_args *ap = v;
     struct vnode *vp = ap->a_vp;
     struct cnode *cp = VTOC(vp);
-    struct thread *td = ap->a_td;
+    THREAD *td = ap->a_td;
 /* upcall decl */
 /* locals */
 
@@ -1779,7 +1779,7 @@ coda_unlock(v)
     struct vop_unlock_args *ap = v;
     struct vnode *vp = ap->a_vp;
     struct cnode *cp = VTOC(vp);
-    struct thread *td = ap->a_td;
+    THREAD *td = ap->a_td;
 /* upcall decl */
 /* locals */
 
