@@ -23,8 +23,31 @@ To do:
 
 	5. Add code that handles the Darwin ubc buffers.
 	   Status: Done
+           
+        6. Try out locking on:
+        
+            - Lookup - Done
+            - Open - Done
+            - Close - Done
+            - Read - Done
+            - Create - Done
+            - Write - Done
+            - remove - Done
+            - rmdir - Done
+            - link - Not tested
+            - symlink - Not tested
+            - rename - Not tested
+            
+            For each of these ops, it should be possible to ls -l the containing directory without anything hanging, and it should be possible to close down venus such that the venus process really dies afterwards.
+            
+        7. Stress test things, preferably on a dual processor machine.
+            Status: Not initiated.
+            
+        8. Write support for getattrlist(2)
+           Status: Not initiated
+            
 
-Mileatones:
+Milestones:
 At each milestone achieved, Check in all changes to CVS and set a tag.
 
 	6. The kext survives the starting of venus.
@@ -32,8 +55,8 @@ At each milestone achieved, Check in all changes to CVS and set a tag.
 	7. The welcome file at /coda/testserver.coda.cs.cmu.edu/Welcome can be read.
 	   Status: Not tested.
 	8. When a file can be written into /coda/testserver.coda.cs.cmu.edu/Welcome/playground.
-	   Status: Not tested.
+	   Status: OK.
 	9. When things work at normal speed.
-	   Status: Not tested.
+	   Status: OK.
        10. When disconnected mode works.
-	   Status: Not tested.
+	   Status: OK.
