@@ -29,6 +29,7 @@
  */
 
 #include <sys/cdefs.h>
+#include "bsdglue.h"
 __FBSDID("$FreeBSD: src/sys/coda/coda_fbsd.c,v 1.31 2003/07/26 07:32:20 phk Exp $");
 
 #include "vcoda.h"
@@ -43,8 +44,12 @@ __FBSDID("$FreeBSD: src/sys/coda/coda_fbsd.c,v 1.31 2003/07/26 07:32:20 phk Exp 
 #include <sys/ucred.h>
 #include <sys/vnode.h>
 
+#ifdef DARWIN
+#include <sys/vm.h>
+#else
 #include <vm/vm.h>
 #include <vm/vnode_pager.h>
+#endif
 
 #include <coda/coda.h>
 #include <coda/cnode.h>
@@ -71,14 +76,17 @@ static struct cdevsw codadevsw = {
 	.d_read =	vc_nb_read,
 	.d_write =	vc_nb_write,
 	.d_ioctl =	vc_nb_ioctl,
+#ifndef DARWIN
 	.d_poll =	vc_nb_poll,
 	.d_name =	"Coda",
 	.d_maj =	VC_DEV_NO,
+#endif /* !DARWIN */
 };
 
 int     vcdebug = 1;
 #define VCDEBUG if (vcdebug) printf
 
+#ifndef DARWIN
 static int
 codadev_modevent(module_t mod, int type, void *data)
 {
@@ -217,3 +225,4 @@ static void coda_fbsd_drvuninit(unused)
 SYSINIT(coda_fbsd_dev,SI_SUB_DRIVERS,SI_ORDER_MIDDLE+VC_DEV_NO,coda_fbsd_drvinit,NULL);
 
 SYSUNINIT(coda_fbsd_dev,SI_SUB_DRIVERS,SI_ORDER_MIDDLE+VC_DEV_NO,coda_fbsd_drvuninit,NULL);
+#endif /* !DARWIN */
