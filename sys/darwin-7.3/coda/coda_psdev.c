@@ -542,11 +542,11 @@ vc_nb_select(dev_t dev, int flag, void *wql, struct proc *p)
 {
     register struct vcomm *vcp;
     
-    ENTRY;
+//    ENTRY; // This one talks too much
     
     if (minor(dev) >= NVCODA || minor(dev) < 0)
     {
-        LEAVE;
+        //LEAVE;
         return(ENXIO);
     }
 
@@ -554,19 +554,19 @@ vc_nb_select(dev_t dev, int flag, void *wql, struct proc *p)
     
     if (flag != FREAD)
     {
-	LEAVE;
+	//LEAVE;
         return(0);
     }
     
     if (!EMPTY(vcp->vc_requests))
     {
-	LEAVE;
+	//LEAVE;
         return(1);
     }
     
     selrecord(p, &(vcp->vc_selproc), wql);
     
-    LEAVE;
+    //LEAVE;
     return(0);
 }
 
