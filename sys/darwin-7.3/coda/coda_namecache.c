@@ -135,7 +135,7 @@ static void coda_nc_remove(struct coda_cache *cncp, enum dc_status dcstat);
 
 int coda_nc_initialized = 0;      /* Initially the cache has not been initialized */
 
-void
+int
 coda_nc_init(void)
 {
     int i;
@@ -148,7 +148,11 @@ coda_nc_init(void)
     printf("CODA NAME CACHE: CACHE %d, HASH TBL %d\n", CODA_NC_CACHESIZE, CODA_NC_HASHSIZE);
 #endif
     CODA_ALLOC(coda_nc_heap, struct coda_cache *, TOTAL_CACHE_SIZE);
+    if(coda_nc_heap==0) return ENOMEM;
     CODA_ALLOC(coda_nc_hash, struct coda_hash *, TOTAL_HASH_SIZE);
+    if(coda_nc_hash==0) return ENOMEM;
+  
+
     
     coda_nc_lru.lru_next = 
 	coda_nc_lru.lru_prev = (struct coda_cache *)LRU_PART(&coda_nc_lru);
@@ -165,6 +169,7 @@ coda_nc_init(void)
     }
     
     coda_nc_initialized++;
+return 0;
 }
 
 /*
