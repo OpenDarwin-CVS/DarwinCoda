@@ -101,7 +101,8 @@
 #define CODA_RMDIR_STATS    17
 #define CODA_SYMLINK_STATS  18
 #define CODA_READDIR_STATS  19
-#define CODA_VNODEOPS_SIZE  20
+#define CODA_PAGEIN_STATS   20
+#define CODA_VNODEOPS_SIZE  21
 
 /*
  * I propose the following structres:
