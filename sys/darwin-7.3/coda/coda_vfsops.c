@@ -372,6 +372,7 @@ coda_root(vfsp, vpp)
 		vget(*vpp, LK_EXCLUSIVE, td);
 #endif
 		MARK_INT_SAT(CODA_ROOT_STATS);
+                ASSURE_LOCKED(*vpp);
                 LEAVE;
 		return(0);
 	    }
@@ -441,6 +442,7 @@ coda_root(vfsp, vpp)
     }
 
  exit:
+    ASSURE_LOCKED(*vpp);
     LEAVE;  
     return(error);
 }
@@ -561,6 +563,7 @@ coda_fhtovp(vfsp, fhp, nam, vpp, exflagsp, creadanonp)
 
 	*vpp = CTOV(cp);
     }
+    ASSURE_LOCKED(*vpp);
     return(error);
 }
 
