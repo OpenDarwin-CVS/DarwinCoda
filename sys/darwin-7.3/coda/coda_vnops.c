@@ -111,6 +111,7 @@ struct coda_op_stats coda_vnodeopstats[CODA_VNODEOPS_SIZE];
 /* What we are delaying for in printf */
 int coda_printf_delay = 0;  /* in microseconds */
 int coda_vnop_print_entry = 0;
+int coda_vnop_print_errleave = 1;
 static int coda_lockdebug = 0;
 
 /* Definition of the vfs operation vector */
@@ -127,7 +128,8 @@ int (**coda_vnodeop_p)(void *);
  */
 
 #define ENTRY  if(coda_vnop_print_entry) PRINTENTRY
-#define LEAVE  if(coda_vnop_print_entry) PRINTLEAVE
+#define LEAVE  if(coda_vnop_print_entry || (error && coda_vnop_print_errleave)) PRINTLEAVE
+#define ERRLEAVE  if(coda_vnop_print_errleave) PRINTLEAVE
 /* Definition of the vnode operation vector */
 
 struct vnodeopv_entry_desc coda_vnodeop_entries[] = {
@@ -158,7 +160,7 @@ struct vnodeopv_entry_desc coda_vnodeop_entries[] = {
     { &vop_lock_desc, coda_lock },		/* lock */
     { &vop_unlock_desc, coda_unlock },		/* unlock */
     { &vop_bmap_desc, coda_bmap },		/* bmap */
-    { &vop_print_desc, coda_vop_error },	/* print */
+    { &vop_print_desc, coda_print },		/* print */
     { &vop_islocked_desc, coda_islocked },	/* islocked */
     { &vop_pathconf_desc, coda_pathconf },	/* pathconf */
     { &vop_advlock_desc, coda_advlock },	/* advlock */
@@ -253,7 +255,7 @@ coda_assure_lock(struct vnode *vp, int locktype, int line, const char *func)
     void *thread = current_act();
     struct cnode *cp;
     pid_t pid=p->p_pid;
-    int rv;
+    int error;
     
 
     if(!vp)
@@ -274,7 +276,7 @@ coda_assure_lock(struct vnode *vp, int locktype, int line, const char *func)
 #ifdef CNODE_NAME_DEBUG
         cp->c_name[31]='\0'; // just in case
 #endif
-        myprintf(("LOCK CHECK in %s line %d: vp=%p, name=%s, locktype=%p\n",func,line,vp,GET_CNODE_NAME,locktype));
+//         myprintf(("LOCK CHECK in %s line %d: vp=%p, name=%s, locktype=%p\n",func,line,vp,GET_CNODE_NAME,locktype)); 
     }
     else
     {
@@ -287,22 +289,22 @@ coda_assure_lock(struct vnode *vp, int locktype, int line, const char *func)
     {
         struct lock__bsd__ *lkp = &cp->c_lock;
 
-        if(rv=coda_islockedbyme(vp, locktype))
+        if(error=coda_islockedbyme(vp, locktype))
         {
-            if((rv ^ locktype) == 0) // Note: bitwise xor here. 
+            if((error ^ locktype) == 0) // Note: bitwise xor here. 
                 return;
-            myprintf(("LOCK ERROR: Vnode at %p IS LOCKED at line %d, function %s, by %d/%p but wrong type=%p should be %p.\n", vp, line, func, pid, thread, rv, locktype));
+            myprintf(("LOCK ERROR: Vnode at %p IS LOCKED at line %d, function %s, by %d/%p but wrong type=%p should be %p. name=%s\n", vp, line, func, pid, thread, error, locktype,GET_CNODE_NAME));
 	    return;
         }
         
         if(lockstatus(lkp, p))
         {
-            myprintf(("LOCK ERROR: Vnode at %p IS LOCKED but not by %d/%p\n",vp,pid,thread));
+            myprintf(("LOCK ERROR: Vnode at %p IS LOCKED at line %d, function %s, but not by %d/%p. name=%s\n",vp,line,func,pid,thread,GET_CNODE_NAME));
             return;
         }
         else
         {
-            myprintf(("LOCK ERROR: Vnode at %p SHOULD BE LOCKED at line %d, function %s, by %d/%p but is not.\n", vp, line, func, pid, thread));
+            myprintf(("LOCK ERROR: Vnode at %p SHOULD BE LOCKED at line %d, function %s, by %d/%p but is not. name=%s\n", vp, line, func, pid, thread,GET_CNODE_NAME));
         }
         
         return;
@@ -316,8 +318,8 @@ coda_assure_lock(struct vnode *vp, int locktype, int line, const char *func)
         {
             return;
         }
-        myprintf(("LOCK ERROR: Vnode at %p IS LOCKED at line %d, function %s, %d/%p but shouldn't be.\n", vp, line, func,pid,thread));
         locktype=lockstatus(lkp,p);
+        myprintf(("LOCK ERROR: Vnode at %p IS LOCKED at line %d, function %s, %d/%p but shouldn't be. Locktype=%p. name=%s\n", vp, line, func,pid,thread,locktype,GET_CNODE_NAME));
         return;
     }
 }
@@ -345,23 +347,27 @@ coda_open(v)
     struct ucred *cred = ap->a_cred;
     THREAD *td = ap->a_td;
 /* locals */
-    int error;
-    struct vnode *vp;
+    int error = 0;
+    struct vnode *cfvp;
     dev_t dev;
     ino_t inode;
 
     ENTRY;
     MARK_ENTRY(CODA_OPEN_STATS);
+    ASSURE_LOCKED(*vpp);
 
     /* Check for open of control file. */
     if (IS_CTL_VP(*vpp)) {
 	/* XXX */
 	/* if (WRITEABLE(flag)) */ 
 	if (flag & (FWRITE | O_TRUNC | O_CREAT | O_EXCL)) {
-	    MARK_INT_FAIL(CODA_OPEN_STATS);	    
+	    MARK_INT_FAIL(CODA_OPEN_STATS);
+	    error=EACCES;
+	    LEAVE;
             return(EACCES);
 	}
 	MARK_INT_SAT(CODA_OPEN_STATS);	
+        ASSURE_LOCKED(*vpp);
         LEAVE;
 	return(0);
     }
@@ -380,30 +386,32 @@ coda_open(v)
 
     /* Translate the <device, inode> pair for the cache file into
        an inode pointer. */
-    error = coda_grab_vnode(dev, inode, &vp);
+    error = coda_grab_vnode(dev, inode, &cfvp);
     if (error)
     {
-        ASSURE_LOCKED(vp);
+        ASSURE_LOCKED(*vpp);
 	LEAVE;
 	return (error);
     }
 
     /* We get the vnode back locked.  Needs unlocked */
     if (coda_lockdebug) {
-	myprintf(("Will attempt unlock on %p from %s line %d\n",vp,__func__,__LINE__));
+	myprintf(("Will attempt unlock on %p from %s line %d\n",cfvp,__func__,__LINE__));
     }
     
-    VOP_UNLOCK(vp, 0, td);
+    VOP_UNLOCK(cfvp, 0, td);
     /* Keep a reference until the close comes in. */
     vref(*vpp);                
 
+    VI_LOCK(*vpp);
     /* Save the vnode pointer for the cache file. */
     if (cp->c_ovp == NULL) {
-	cp->c_ovp = vp;
+	cp->c_ovp = cfvp;
     } else {
-	if (cp->c_ovp != vp)
+	if (cp->c_ovp != cfvp)
 	    panic("coda_open:  cp->c_ovp != ITOV(ip)");
     }
+
     cp->c_ocount++;
 
     /* Flush the attribute cached if writing the file. */
@@ -411,6 +419,7 @@ coda_open(v)
 	cp->c_owrite++;
 	cp->c_flags &= ~C_VATTR;
     }
+    VI_UNLOCK(*vpp);
 
     /* Save the <device, inode> pair for the cache file to speed
        up subsequent page_read's. */
@@ -419,26 +428,31 @@ coda_open(v)
 
     /* Open the cache file. */
 #ifdef DARWIN
-    error = VOP_OPEN(vp, flag, cred, td); 
+    error = VOP_OPEN(cfvp, flag, cred, td); 
 #else /* !DARWIN */
-    error = VOP_OPEN(vp, flag, cred, td, -1); 
+    error = VOP_OPEN(cfvp, flag, cred, td, -1); 
 #endif /* !DARWIN */
     if (error) {
     	myprintf(("coda_open: VOP_OPEN on container failed %d\n", error));
-        ASSURE_LOCKED(vp);
 	LEAVE;
+	/* If we fail here, should we keep the cache file vnode ?? */
+	vput(cfvp); 
 	return (error);
     }
-/* grab (above) does this when it calls newvnode unless it's in the cache*/
-    if (vp->v_type == VREG) {
-    	error = vfs_object_create(vp, td, cred);
+/* grab (above) does this when it calls newvnode unless it's in the cache */
+/* DARWIN does this from within VOP_OPEN, so there's no need to do it here */
+#ifndef DARWIN
+    if (cfvp->v_type == VREG) 
+    {
+    	error = vfs_object_create(cfvp, td, cred);
 	if (error != 0) {
 	    myprintf(("coda_open: vfs_object_create() returns %d\n", error));
-	    vput(vp);
+	    vput(cfvp);
 	}
     }
+#endif
     LEAVE;
-    ASSURE_LOCKED(vp);
+    ASSURE_LOCKED(*vpp);
     return(error);
 }
 
@@ -457,7 +471,7 @@ coda_close(v)
     struct ucred *cred = ap->a_cred;
     THREAD *td = ap->a_td;
 /* locals */
-    int error;
+    int error = 0;
 
     ENTRY;
     MARK_ENTRY(CODA_CLOSE_STATS);
@@ -468,6 +482,9 @@ coda_close(v)
 	LEAVE;
 	return(0);
     }
+
+    if((vp->v_type == VDIR || vp->v_flag & VXLOCK))
+	return 0;
 
     if (IS_UNMOUNTING(cp)) {
 	if (cp->c_ovp) {
@@ -486,31 +503,36 @@ coda_close(v)
 	    myprintf(("coda_close: NO container vp %p/cp %p\n", vp, cp));
 #endif
 	}
+	error=NODEV;
 	LEAVE;
-	return ENODEV;
-    } else {
+	return error;
+    }
+    if(cp->c_ovp)
+    {
 	VOP_CLOSE(cp->c_ovp, flag, cred, td); /* Do errors matter here? */
 	vrele(cp->c_ovp);
     }
 
+    VI_LOCK(vp);
+    if(cp->c_ocount <= 0)
+    {
+	myprintf(("WARNING: closing already closed file. vp=%p, cp=%p, ocount=%d, ovp=%p\n",vp,cp,cp->c_ocount,cp->c_ovp));
+	vprint("Already closed=",vp);
+	error=EBADF;
+	LEAVE;
+        VI_UNLOCK(vp);
+	return(error);
+    }
     if (--cp->c_ocount == 0)
 	cp->c_ovp = NULL;
 
     if (flag & FWRITE)                    /* file was opened for write */
 	--cp->c_owrite;
 
+    VI_UNLOCK(vp);
     error = venus_close(vtomi(vp), &cp->c_fid, flag, cred, THREAD2PROC);
-    vrele(CTOV(cp));
     
-#if 0
-    if(VOP_ISLOCKED(vp))
-    {
-        if (coda_lockdebug) {
-            myprintf(("Will attempt unlock on %p from %s line %d\n", vp,__func__,__LINE__));
-        }
-        VOP_UNLOCK(vp, 0, td);
-    }
-#endif
+    vrele(vp); // Drop the ref taken in coda_open
 
     CODADEBUG(CODA_CLOSE, myprintf(("close: result %d\n",error)); )
     LEAVE;
@@ -522,7 +544,7 @@ coda_read(v)
     void *v;
 {
     struct vop_read_args *ap = v;
-    int error=0;
+    int error = 0;
 
     ENTRY;
     error=coda_rdwr(ap->a_vp, ap->a_uio, UIO_READ,
@@ -537,7 +559,7 @@ coda_write(v)
 void *v;
 {
     struct vop_write_args *ap = v;
-    int error=0;
+    int error = 0;
     
     ENTRY;
     
@@ -569,8 +591,8 @@ coda_rdwr(vp, uiop, rw, ioflag, cred, td)
     int iscore = 0;
 
     
-    ASSURE_LOCKED(vp);
     ENTRY;
+    ASSURE_LOCKED(vp);
     
     MARK_ENTRY(CODA_RDWR_STATS);
 
@@ -642,6 +664,7 @@ coda_rdwr(vp, uiop, rw, ioflag, cred, td)
         	LEAVE;
 		return (error);
 	    }
+#ifndef DARWIN
 	    if (vp->v_type == VREG) {
 		error = vfs_object_create(vp, td, cred);
 		if (error != 0) {
@@ -655,6 +678,7 @@ coda_rdwr(vp, uiop, rw, ioflag, cred, td)
         	LEAVE;
 		return(error);
 	    }
+#endif
 	    cfvp = cp->c_ovp;
 	}
     }
@@ -710,13 +734,12 @@ coda_ioctl(v)
     struct ucred *cred = ap->a_cred;
     THREAD *td = ap->a_td;
 /* locals */
-    int error;
+    int error = 0;
     struct vnode *tvp;
     struct nameidata ndp;
     struct PioctlData *iap = (struct PioctlData *)data;
     
     ENTRY;
-    ASSURE_UNLOCKED(vp);
     MARK_ENTRY(CODA_IOCTL_STATS);
 
     //CODADEBUG(CODA_IOCTL, myprintf(("in coda_ioctl on %s\n", iap->path));)
@@ -731,6 +754,7 @@ coda_ioctl(v)
     	LEAVE;
 	    return (EOPNOTSUPP);
     }
+    ASSURE_UNLOCKED(vp);
     /* Look up the pathname. */
 
     /* Should we use the name cache here? It would get it from
@@ -747,6 +771,7 @@ coda_ioctl(v)
 	MARK_INT_FAIL(CODA_IOCTL_STATS);
 	CODADEBUG(CODA_IOCTL, myprintf(("coda_ioctl error: lookup returns %d\n",
 				   error));)
+    	ASSURE_UNLOCKED(vp);
 	LEAVE;
 	return(error);
     }
@@ -763,12 +788,14 @@ coda_ioctl(v)
 	//CODADEBUG(CODA_IOCTL, 
 	//	 myprintf(("coda_ioctl error: %s not a coda object\n", 
 	//		iap->path));)
+    	ASSURE_UNLOCKED(vp);
 	LEAVE;
 	return(EINVAL);
     }
 
     if (iap->vi.in_size > VC_MAXDATASIZE) {
 	NDFREE(&ndp, 0);
+    	ASSURE_UNLOCKED(vp);
 	LEAVE;
 	return(EINVAL);
     }
@@ -781,6 +808,7 @@ coda_ioctl(v)
 
     vrele(tvp);
     NDFREE(&ndp, NDF_ONLY_PNBUF);
+    ASSURE_UNLOCKED(vp);
     LEAVE;
     return(error);
 }
@@ -806,16 +834,14 @@ coda_getattr(v)
     struct ucred *cred = ap->a_cred;
     THREAD *td = ap->a_td;
 /* locals */
-    int error;
+    int error = 0;
 
     ENTRY;
-    ASSURE_LOCKED(vp);
     
     MARK_ENTRY(CODA_GETATTR_STATS);
 
     if (IS_UNMOUNTING(cp))
     {
-        ASSURE_LOCKED(vp);
 	LEAVE;
 	return ENODEV;
     }
@@ -823,7 +849,6 @@ coda_getattr(v)
     /* Check for getattr of control object. */
     if (IS_CTL_VP(vp)) {
 	MARK_INT_FAIL(CODA_GETATTR_STATS);
-        ASSURE_LOCKED(vp);
 	LEAVE;
 	return(ENOENT);
     }
@@ -836,7 +861,6 @@ coda_getattr(v)
 	
 	*vap = cp->c_vattr;
 	MARK_INT_SAT(CODA_GETATTR_STATS);
-        ASSURE_LOCKED(vp);
 	LEAVE;
 	return(0);
     }
@@ -852,9 +876,10 @@ coda_getattr(v)
 	
     {	
         int size = vap->va_size;
-    	struct vnode *convp = cp->c_ovp;
-	if (convp != (struct vnode *)0) {
-	    vnode_pager_setsize(convp, size);
+
+    	struct vnode *cfvp = cp->c_ovp;
+	if (cfvp != (struct vnode *)0) {
+	    vnode_pager_setsize(cfvp, size);
 	}
     }
 	/* If not open for write, store attributes in cnode */   
@@ -864,7 +889,6 @@ coda_getattr(v)
 	}
 	
     }
-    ASSURE_LOCKED(vp);
     LEAVE;
     return(error);
 }
@@ -881,7 +905,7 @@ coda_setattr(v)
     struct ucred *cred = ap->a_cred;
     THREAD *td = ap->a_td;
 /* locals */
-    int error;
+    int error = 0;
 
     ENTRY;
     
@@ -907,9 +931,9 @@ coda_setattr(v)
 	cp->c_flags &= ~C_VATTR;
 
     {	int size = vap->va_size;
-    	struct vnode *convp = cp->c_ovp;
-	if (size != VNOVAL && convp != (struct vnode *)0) {
-	    vnode_pager_setsize(convp, size);
+    	struct vnode *cfvp = cp->c_ovp;
+	if (size != VNOVAL && cfvp != (struct vnode *)0) {
+	    vnode_pager_setsize(cfvp, size);
 	}
     }
     CODADEBUG(CODA_SETATTR,	myprintf(("setattr error=%d\n", error)); ) ;   
@@ -930,7 +954,7 @@ coda_access(v)
     struct ucred *cred = ap->a_cred;
     THREAD *td = ap->a_td;
 /* locals */
-    int error;
+    int error = 0;
 
     ENTRY;
     
@@ -983,7 +1007,7 @@ coda_readlink(v)
     struct ucred *cred = ap->a_cred;
     THREAD *td = ap->a_uio->uio_td;
 /* locals */
-    int error;
+    int error = 0;
     char *str;
     int len;
     
@@ -1045,8 +1069,8 @@ coda_fsync(v)
     struct ucred *cred = ap->a_cred;
     THREAD *td = ap->a_td;
 /* locals */
-    struct vnode *convp = cp->c_ovp;
-    int error;
+    struct vnode *cfvp = cp->c_ovp;
+    int error = 0;
    
     ENTRY;
     
@@ -1066,25 +1090,27 @@ coda_fsync(v)
     /* Check for fsync of control object. */
     if (IS_CTL_VP(vp)) {
 	MARK_INT_SAT(CODA_FSYNC_STATS);
+        ASSURE_LOCKED(vp);
         LEAVE;
 	return(0);
     }
 
-    if (convp)
-    	VOP_FSYNC(convp, cred, MNT_WAIT, td);
+    if (cfvp)
+    	VOP_FSYNC(cfvp, cred, MNT_WAIT, td);
 
     /*
      * We see fsyncs with usecount == 1 then usecount == 0.
      * For now we ignore them.
      */
-    /*
     VI_LOCK(vp);
     if (!vp->v_usecount) {
-    	myprintf(("coda_fsync on vnode %p with %d usecount.  c_flags = %x (%x)\n",
-		vp, vp->v_usecount, cp->c_flags, cp->c_flags&C_PURGING))))));
+//    	myprintf(("coda_fsync on vnode %p with %d usecount.  c_flags = %x (%x)\n",
+//		vp, vp->v_usecount, cp->c_flags, cp->c_flags&C_PURGING));
+        VI_UNLOCK(vp);
+	LEAVE;
+	return(0);
     }
     VI_UNLOCK(vp);
-    */
 
     /*
      * We can expect fsync on any vnode at all if venus is purging it.
@@ -1099,11 +1125,14 @@ coda_fsync(v)
     }
 
     /* needs research */
+    ASSURE_LOCKED(vp);
     LEAVE;
     return 0;
     error = venus_fsync(vtomi(vp), &cp->c_fid, cred, THREAD2PROC);
 
-    CODADEBUG(CODA_FSYNC, myprintf(("in fsync result %d\n",error)); );
+   // myprintf(("coda_fsync: vp=%p, result %d\n",vp, error));
+    ASSURE_LOCKED(vp);
+    LEAVE;
     return(error);
 }
 
@@ -1121,7 +1150,7 @@ coda_inactive(v)
     THREAD *td __attribute__((unused)) = CURTHREAD;
 /* upcall decl */
 /* locals */
-    int error=0;
+    int error = 0;
 
     ENTRY;
     ASSURE_LOCKED(vp);
@@ -1130,6 +1159,7 @@ coda_inactive(v)
 
     if (IS_CTL_VP(vp)) {
 	MARK_INT_SAT(CODA_INACTIVE_STATS);
+	VOP_UNLOCK(vp,0,td);
         ASSURE_UNLOCKED(vp);
 	return error;
     }
@@ -1176,7 +1206,11 @@ coda_inactive(v)
             myprintf(("Will attempt unlock on %p from %s line %d\n",vp,__func__,__LINE__));
         }
 	VOP_UNLOCK(vp, 0, td);
-	vgone(vp);
+/* Calling vgone here is a bit dangerous, in fact it can cause the process to deadlock, since vgone
+   calls VOP_INACTIVE via vclean */
+
+        if (vp->v_usecount == 0)
+	    vgone(vp);
         LEAVE;
 // We cannot assure unlocking on exiting sine the vnode is now free to be used by something else
     }
@@ -1193,6 +1227,297 @@ coda_inactive(v)
  * It appears that in NetBSD, lookup is supposed to return the vnode locked
  */
 
+#define NEW_LOOKUP_CODE
+#ifdef NEW_LOOKUP_CODE
+struct cnode *
+_coda_get_cnode(struct vnode *dvp,
+		struct vnode **vpp,
+		const char *nm,
+		int len,
+		struct ucred *cred,
+		THREAD *td,
+		int *errp)
+{
+    CodaFid VFid;
+    int	vtype;
+    struct cnode *cp;
+    struct cnode *dcp = VTOC(dvp);
+
+    /* First try to look the file up in the cfs name cache */
+    /* lock the parent vnode? */
+    cp = coda_nc_lookup(dcp, nm, len, cred);
+    if (cp) 
+    {
+	*vpp = CTOV(cp);
+	VREF(*vpp);
+	CODADEBUG(CODA_LOOKUP, myprintf(("lookup result %d vpp %p\n",*errp,*vpp)););
+	SET_CNODE_NAME(nm);
+        return cp;
+    } 
+    
+    /* The name wasn't cached, so we need to contact Venus */
+    *errp = venus_lookup(vtomi(dvp), &dcp->c_fid, nm, len, cred, THREAD2PROC, &VFid, &vtype);
+            
+    if(*errp)
+    {
+        MARK_INT_FAIL(CODA_LOOKUP_STATS);
+        CODADEBUG(CODA_LOOKUP, myprintf(("lookup error on %s (%s)%d\n",
+                                         coda_f2s(&dcp->c_fid), nm, *errp)););
+        return 0;
+    }
+    
+    MARK_INT_SAT(CODA_LOOKUP_STATS);
+    CODADEBUG(CODA_LOOKUP, myprintf(("lookup: %s type %o result %d\n",
+                                     coda_f2s(&VFid), vtype, *errp)); );
+    cp = make_coda_node(&VFid, dvp->v_mount, vtype);
+    if(cp == 0) 
+    {
+        *errp=ENOMEM;
+        return cp;
+    }
+    
+    SET_CNODE_NAME(nm);
+    
+    *vpp = CTOV(cp);
+    
+    /* enter the new vnode in the Name Cache only if the top bit isn't set */
+    /* And don't enter a new vnode for an invalid one! */
+    if (!(vtype & CODA_NOCACHE))
+        coda_nc_enter(dcp, nm, len, cred, VTOC(*vpp));
+    
+    return cp;
+}
+
+int
+coda_lookup(v)
+    void *v;
+{
+/* true args */
+    struct vop_lookup_args *ap = v;
+    struct vnode *dvp = ap->a_dvp;
+    struct cnode *dcp = VTOC(dvp);
+    struct vnode **vpp = ap->a_vpp;
+    /* 
+     * It looks as though ap->a_cnp->ni_cnd->cn_nameptr holds the rest
+     * of the string to xlate, and that we must try to get at least
+     * ap->a_cnp->ni_cnd->cn_namelen of those characters to macth.  I
+     * could be wrong. 
+     */
+    struct componentname  *cnp = ap->a_cnp;
+    struct ucred *cred = cnp->cn_cred;
+    THREAD *td = cnp->cn_thread;
+/* locals */
+    struct cnode *cp;
+    const char *nm = cnp->cn_nameptr;
+    int len = cnp->cn_namelen;
+    int flags = cnp->cn_flags;
+    int lockparent,wantparent;
+    int nameiop=cnp->cn_nameiop;
+    int error = 0;
+    int isdot = 0;
+
+
+    ENTRY;
+    //if(dvp) myprintf(("Entering coda_lookup: dvp=%p, usecount=%d\n",dvp,dvp->v_usecount));
+    //if(*vpp) myprintf(("Entering coda_lookup: *vpp=%p, usecount=%d\n",*vpp,(*vpp)->v_usecount));
+//    if(*vpp) vprint("Entering coda:lookup: *vpp",*vpp);
+ //   if(dvp) vprint("Entering coda:lookup: dvp",dvp);
+
+    wantparent = flags & (LOCKPARENT|WANTPARENT);
+    lockparent = flags & LOCKPARENT;
+//    myprintf(("Entering coda_lookup: wantparent=%d, lockparent=%d\n",wantparent,lockparent));
+
+    ASSURE_LOCKED(dvp);
+    
+    MARK_ENTRY(CODA_LOOKUP_STATS);
+
+    CODADEBUG(CODA_LOOKUP, myprintf(("lookup: %s in %s, nameiop=%x\n",
+				   nm, coda_f2s(&dcp->c_fid), nameiop)););
+
+    /* Check for lookup of control object. */
+    if (IS_CTL_NAME(dvp, nm, len)) 
+    {
+	*vpp = coda_ctlvp;
+	vref(*vpp);
+        vn_lock(*vpp, LK_EXCLUSIVE | LK_RETRY, td);
+	MARK_INT_SAT(CODA_LOOKUP_STATS);
+        if(!(flags &  ISLASTCN) || !(flags & LOCKPARENT))
+		VOP_UNLOCK(dvp, 0, td);
+	goto exit;
+    }
+    
+    if(dvp->v_type != VDIR)
+    {
+        LEAVE;
+        return ENOTDIR;
+    }
+    
+    if(nm)
+        CODADEBUG(CODA_LOOKUP, myprintf(("\n\nLooking up entry %s\n",nm)););
+    
+    if (len+1 > CODA_MAXNAMLEN) 
+    {
+	MARK_INT_FAIL(CODA_LOOKUP_STATS);
+
+	CODADEBUG(CODA_LOOKUP, myprintf(("name too long: lookup, %s (%s)\n",
+					 coda_f2s(&dcp->c_fid), nm)););
+	*vpp = (struct vnode *)0;
+	error = EINVAL;
+        myprintf(("Coda_lookup: too long name\n"));
+	goto exit;
+    }
+
+    isdot = (cnp->cn_nameptr[0] == '.') && (cnp->cn_namelen == 1);
+
+    if ( flags & ISDOTDOT )
+    {
+	VOP_UNLOCK(dvp, 0, td);
+	cp = _coda_get_cnode(dvp,vpp,nm,len,cred,td,&error);
+	if(cp == NULL)
+	{
+		vn_lock(dvp, LK_EXCLUSIVE | LK_RETRY, td);
+		//myprintf(("Coda_lookup: IsDotDot not found\n"));
+		goto exit;
+	}
+//	myprintf(("coda_lookup: lockparent=%d, islastcn=%d, dvp=%p, *vpp=%p\n",(flags & LOCKPARENT), (flags & ISLASTCN), dvp, CTOV(cp)));
+	*vpp=CTOV(cp);
+        vn_lock(*vpp, LK_EXCLUSIVE | LK_RETRY, td);
+
+	if((flags & LOCKPARENT) && 
+	   (flags & ISLASTCN) && (dvp != CTOV(cp)) &&
+	   (error = vn_lock(dvp, LK_EXCLUSIVE, td)))
+	{
+		vput(CTOV(cp));
+	//	myprintf(("Coda_lookup: IsDotDot relock failed\n"));
+		goto exit;
+	}
+        //myprintf(("Coda_lookup: IsDotDot\n"));
+	goto exit;
+     }
+     if (isdot)
+     {
+	VREF(dvp);
+	*vpp = dvp;
+        //myprintf(("Coda_lookup: IsDot\n"));
+	goto exit;
+     }
+     
+     cp=_coda_get_cnode(dvp,vpp,nm,len,cred,td,&error);
+     if(cp == NULL)
+     {
+	*vpp=NULL;
+        //myprintf(("Coda_lookup: NotFound\n"));
+	goto exit;
+     }
+
+     if(!(flags &  ISLASTCN) || !(flags & LOCKPARENT))
+	VOP_UNLOCK(dvp, 0, td);
+
+     *vpp=CTOV(cp);
+     vn_lock(*vpp, LK_EXCLUSIVE | LK_RETRY, td);
+     //myprintf(("Coda_lookup: Found dvp=%p, *vpp=%p\n",dvp,*vpp));
+
+ exit:
+    /* 
+     * If we are creating, and this was the last name to be looked up,
+     * and the error was ENOENT, then there really shouldn't be an
+     * error and we can make the leaf NULL and return success.  Since
+     * this is supposed to work under Mach as well as NetBSD, we're
+     * leaving this fn wrapped.  We also must tell lookup/namei that
+     * we need to save the last component of the name.  (Create will
+     * have to free the name buffer later...lucky us...)
+     */
+    if(error && (error != ENOENT))
+    {
+	myprintf(("Coda_lookup: error=%d, flags=%p, nameiop=%p \n",error,flags,nameiop));
+	if(vpp) myprintf(("coda_lookup: returning error=%d, *vpp=%p\n",error,*vpp));
+	if(dvp) myprintf(("coda_lookup: lockparent=%d, islastcn=%d, dvp=%p\n",(flags & LOCKPARENT), (flags & ISLASTCN), dvp));
+        myprintf(("coda_lookup: wantparent=%d, lockparent=%d\n",wantparent,lockparent));
+        if(nm) myprintf(("coda_lookup: was looking up entry %s\n",nm));
+    }
+
+    if (((nameiop == CREATE) || (nameiop == RENAME))
+	&& (flags & ISLASTCN)
+	&& (error == ENOENT))
+    {
+	error = EJUSTRETURN;
+	cnp->cn_flags |= SAVENAME;
+ 	if (!(flags & LOCKPARENT))
+		VOP_UNLOCK(dvp, 0, td);
+
+        *vpp = (struct vnode *)0;
+    }
+
+    /* 
+     * If we are removing, and we are at the last element, and we
+     * found it, then we need to keep the name around so that the
+     * removal will go ahead as planned.  Unfortunately, this will
+     * probably also lock the to-be-removed vnode, which may or may
+     * not be a good idea.  I'll have to look at the bits of
+     * coda_remove to make sure.  We'll only save the name if we did in
+     * fact find the name, otherwise coda_remove won't have a chance
+     * to free the pathname.  
+     */
+    if ( 
+         (nameiop == DELETE) &&
+	 (flags & ISLASTCN) &&
+	 !error
+       )
+    {
+	cnp->cn_flags |= SAVENAME;
+    }
+    /* 
+     * If the lookup went well, we need to (potentially?) unlock the
+     * parent, and lock the child.  We are only responsible for
+     * checking to see if the parent is supposed to be unlocked before
+     * we return.  We must always lock the child (provided there is
+     * one, and (the parent isn't locked or it isn't the same as the
+     * parent.)  Simple, huh?  We can never leave the parent locked unless
+     * we are ISLASTCN
+     */
+    if (!error || (error == EJUSTRETURN)) 
+    {
+    } 
+    else 
+    {
+	/* If the lookup failed, we need to ensure that the leaf is NULL and unlock the parent */
+        *vpp = NULL;
+    }
+//    if(dvp) myprintf(("leaving coda_lookup: dvp=%p, usecount=%d\n",dvp,dvp->v_usecount));
+//    if(*vpp) myprintf(("leaving coda_lookup: *vpp=%p, usecount=%d\n",*vpp,(*vpp)->v_usecount));
+//lockcheck:
+//    myprintf(("Lookup lock check 2: vp=%p, dvp=%p, error=%d, cn_flags=%p\n",*vpp,dvp,error,flags));
+    if(error && (error != EJUSTRETURN))
+    {
+        ASSURE_LOCKED(dvp);
+    }
+    else
+    {
+        if( *vpp == dvp || isdot || (flags & LOCKPARENT) &&  (flags & ISLASTCN))
+        {
+            ASSURE_LOCKED(dvp);
+//	    if(!VOP_ISLOCKED(dvp))
+//	    {	
+//		myprintf(("Coda_lookup; dvp=%p, flags=%p, error=%d, nameiop=%d",dvp,flags,error,nameiop));
+//	    }
+        }
+        else
+	{
+            ASSURE_UNLOCKED(dvp);
+//	    if(VOP_ISLOCKED(dvp))
+//	    {	
+//		myprintf(("Coda_lookup; dvp=%p, flags=%p, error=%d, nameiop=%d",dvp,flags,error,nameiop));
+//	    }
+	}
+    }
+    if(*vpp )
+        ASSURE_LOCKED(*vpp);
+       
+    if(error != EJUSTRETURN)
+	    LEAVE;
+    return(error);
+}
+#else /* ! NEW_LOOKUP_CODE */
 //#define LOCK_PARENT vget(dvp, LK_EXCLUSIVE,td)
 //#define LOCK_LEAF vget(*vpp, LK_EXCLUSIVE,td)
 #define LOCK_LEAF VOP_LOCK(*vpp, LK_EXCLUSIVE, td)
@@ -1456,6 +1781,7 @@ lockcheck:
     LEAVE;
     return(error);
 }
+#endif
 
 /*ARGSUSED*/
 int
@@ -1474,7 +1800,7 @@ coda_create(v)
     struct ucred *cred = cnp->cn_cred;
     THREAD *td = cnp->cn_thread;
 /* locals */
-    int error;
+    int error = 0;
     struct cnode *cp;
     const char *nm = cnp->cn_nameptr;
     int len = cnp->cn_namelen;
@@ -1492,8 +1818,6 @@ coda_create(v)
     if (IS_CTL_NAME(dvp, nm, len)) {
 	*vpp = (struct vnode *)0;
 	MARK_INT_FAIL(CODA_CREATE_STATS);
-        vput(dvp);
-        ASSURE_UNLOCKED(dvp);
 	LEAVE; 
 	return(EACCES);
     } 
@@ -1526,7 +1850,6 @@ coda_create(v)
 	if (cp == 0 ) 
 	{
             vput(dvp);
-            ASSURE_UNLOCKED(dvp);
 	    LEAVE;
 	    return ENOMEM;
 	}
@@ -1560,7 +1883,6 @@ coda_create(v)
     if (!error) {
 	if (cnp->cn_flags & LOCKLEAF) {
             
-#ifndef USE_VGET
             if (coda_lockdebug) {
                 myprintf(("Will attempt lock on %p from %s line %d\n",*ap->a_vpp,__func__,__LINE__));
             }
@@ -1568,9 +1890,6 @@ coda_create(v)
 		myprintf(("coda_create: "));
 		panic(" couldn't lock child");
 	    }
-#else /* ! USE_VGET */
-            vget(*ap->a_vpp, LK_EXCLUSIVE, td);
-#endif /* ! USE VGET */
 
 	}
 #ifdef OLD_DIAGNOSTIC
@@ -1580,7 +1899,6 @@ coda_create(v)
 #endif
     }
     vput(dvp);
-    ASSURE_UNLOCKED(dvp);
     if(*vpp)
         ASSURE_LOCKED(*vpp);
     LEAVE;
@@ -1600,7 +1918,7 @@ coda_remove(v)
     struct ucred *cred = cnp->cn_cred;
     THREAD *td = cnp->cn_thread;
     /* locals */
-    int error;
+    int error = 0;
     const char *nm = cnp->cn_nameptr;
     int len = cnp->cn_namelen;
     struct cnode *tp;
@@ -1613,6 +1931,16 @@ coda_remove(v)
     
     CODADEBUG(CODA_REMOVE, myprintf(("remove: %s in %s\n",
 				     nm, coda_f2s(&cp->c_fid))););
+
+    if (ap->a_cnp->cn_flags & NODELETEBUSY) {
+	/* Caller requested Carbon delete semantics */
+	if ((!UBCISVALID(vp) && vp->v_usecount > 1)
+	    || (UBCISVALID(vp) && ubc_isinuse(vp, 1))) {
+		error = EBUSY;
+		goto out;
+	}
+    }
+
     /* Remove the file's entry from the CODA Name Cache */
     /* We're being conservative here, it might be that this person
         * doesn't really have sufficient access to delete the file
@@ -1643,34 +1971,39 @@ coda_remove(v)
 /* Check for remove of control object. */
     if (IS_CTL_NAME(dvp, nm, len)) {
         MARK_INT_FAIL(CODA_REMOVE_STATS);
-        ASSURE_LOCKED(vp);
-        ASSURE_LOCKED(dvp);
-        LEAVE;
-        return(ENOENT);
+	goto out;
     }
 
     error = venus_remove(vtomi(dvp), &cp->c_fid, nm, len, cred, THREAD2PROC);
 
-    if(!error && VOP_ISLOCKED(dvp))
-    {
-        if (coda_lockdebug) {
-            myprintf(("coda_remove: Unlocking locked parent\n"));
-        }
-        VOP_UNLOCK(dvp, 0, td);
-    }
-    if(!error && VOP_ISLOCKED(vp))
+    if(VOP_ISLOCKED(vp) && dvp != vp)
     {
         if (coda_lockdebug) {
             myprintf(("coda-remove: Unlocking removed leaf\n"));
         }
         VOP_UNLOCK(vp, 0, td);
     }
+    (void) ubc_uncache(vp);
+    vrele(vp);
+    vput(dvp);
+    CODADEBUG(CODA_REMOVE, myprintf(("in remove result %d\n",error)); )
+    LEAVE;
+    return error;
 
+out:
+
+    if(dvp == vp)
+    {
+        ASSURE_UNLOCKED(vp); 
+	vrele(vp);
+    }
+    else
+	vput(vp);
+
+    vput(dvp);
 
     CODADEBUG(CODA_REMOVE, myprintf(("in remove result %d\n",error)); )
 
-    ASSURE_LOCKED(vp);
-    ASSURE_LOCKED(dvp);
     LEAVE;
 
     return(error);
@@ -1690,13 +2023,13 @@ coda_link(v)
     struct ucred *cred = cnp->cn_cred;
     THREAD *td = cnp->cn_thread;
 /* locals */
-    int error;
+    int error = 0;
     const char *nm = cnp->cn_nameptr;
     int len = cnp->cn_namelen;
 
     ENTRY;
     ASSURE_LOCKED(tdvp);
-    ASSURE_LOCKED(vp);
+    ASSURE_UNLOCKED(vp);
     MARK_ENTRY(CODA_LINK_STATS);
 
     if (codadebug & CODADBGMSK(CODA_LINK)) {
@@ -1715,8 +2048,6 @@ coda_link(v)
     /* Check for link to/from control object. */
     if (IS_CTL_NAME(tdvp, nm, len) || IS_CTL_VP(vp)) {
 	MARK_INT_FAIL(CODA_LINK_STATS);
-        ASSURE_LOCKED(tdvp);
-        ASSURE_LOCKED(vp);
         LEAVE;
 	return(EACCES);
     }
@@ -1728,8 +2059,16 @@ coda_link(v)
     VTOC(vp)->c_flags &= ~C_VATTR;
 
     CODADEBUG(CODA_LINK,	myprintf(("in link result %d\n",error)); )
-    ASSURE_LOCKED(tdvp);
-    ASSURE_LOCKED(vp);
+    if( vp == tdvp )
+    {
+        ASSURE_UNLOCKED(tdvp);
+	vrele(tdvp);
+    }
+    else
+    {
+	vput(tdvp);
+    }
+    ASSURE_UNLOCKED(vp);
     LEAVE;
     return(error);
 }
@@ -1740,16 +2079,16 @@ coda_rename(v)
 {
 /* true args */
     struct vop_rename_args *ap = v;
-    struct vnode *odvp = ap->a_fdvp;
-    struct cnode *odcp = VTOC(odvp);
+    struct vnode *fdvp = ap->a_fdvp;
+    struct cnode *fdcp = VTOC(fdvp);
     struct componentname  *fcnp = ap->a_fcnp;
-    struct vnode *ndvp = ap->a_tdvp;
-    struct cnode *ndcp = VTOC(ndvp);
+    struct vnode *tdvp = ap->a_tdvp;
+    struct cnode *tdcp = VTOC(tdvp);
     struct componentname  *tcnp = ap->a_tcnp;
     struct ucred *cred = fcnp->cn_cred;
     THREAD *td = fcnp->cn_thread;
 /* true args */
-    int error;
+    int error = 0;
     const char *fnm = fcnp->cn_nameptr;
     int flen = fcnp->cn_namelen;
     const char *tnm = tcnp->cn_nameptr;
@@ -1758,8 +2097,9 @@ coda_rename(v)
     ENTRY;
     MARK_ENTRY(CODA_RENAME_STATS);
     
-    ASSURE_UNLOCKED(odvp);
-    ASSURE_LOCKED(ndvp);
+    if(fdvp != tdvp)
+	ASSURE_UNLOCKED(fdvp);
+    ASSURE_LOCKED(tdvp);
 
     /* Hmmm.  The vnodes are already looked up.  Perhaps they are locked?
        This could be Bad. XXX */
@@ -1772,32 +2112,30 @@ coda_rename(v)
 #endif
 
     /* Check for rename involving control object. */ 
-    if (IS_CTL_NAME(odvp, fnm, flen) || IS_CTL_NAME(ndvp, tnm, tlen)) {
+    if (IS_CTL_NAME(fdvp, fnm, flen) || IS_CTL_NAME(tdvp, tnm, tlen)) {
 	MARK_INT_FAIL(CODA_RENAME_STATS);    
-        ASSURE_UNLOCKED(odvp);
-        ASSURE_LOCKED(ndvp);
         LEAVE;
 	return(EACCES);
     }
 
     /* Problem with moving directories -- need to flush entry for .. */
-    if (odvp != ndvp) {
-	struct cnode *ovcp = coda_nc_lookup(VTOC(odvp), fnm, flen, cred);
+    if (fdvp != tdvp) {
+	struct cnode *ovcp = coda_nc_lookup(VTOC(fdvp), fnm, flen, cred);
 	if (ovcp) {
-	    struct vnode *ovp = CTOV(ovcp);
-	    if ((ovp) &&
-		(ovp->v_type == VDIR)) /* If it's a directory */
-		coda_nc_zapfile(VTOC(ovp),"..", 2);
+	    struct vnode *cfvp = CTOV(ovcp);
+	    if ((cfvp) &&
+		(cfvp->v_type == VDIR)) /* If it's a directory */
+		coda_nc_zapfile(VTOC(cfvp),"..", 2);
 	}
     }
 
     /* Remove the entries for both source and target files */
-    coda_nc_zapfile(VTOC(odvp), fnm, flen);
-    coda_nc_zapfile(VTOC(ndvp), tnm, tlen);
+    coda_nc_zapfile(VTOC(fdvp), fnm, flen);
+    coda_nc_zapfile(VTOC(tdvp), tnm, tlen);
 
     /* Invalidate the parent's attr cache, the modification time has changed */
-    VTOC(odvp)->c_flags &= ~C_VATTR;
-    VTOC(ndvp)->c_flags &= ~C_VATTR;
+    VTOC(fdvp)->c_flags &= ~C_VATTR;
+    VTOC(tdvp)->c_flags &= ~C_VATTR;
 
     if (flen+1 > CODA_MAXNAMLEN) {
 	MARK_INT_FAIL(CODA_RENAME_STATS);
@@ -1811,7 +2149,7 @@ coda_rename(v)
 	goto exit;
     }
 
-    error = venus_rename(vtomi(odvp), &odcp->c_fid, &ndcp->c_fid, fnm, flen, tnm, tlen, cred, THREAD2PROC);
+    error = venus_rename(vtomi(fdvp), &fdcp->c_fid, &tdcp->c_fid, fnm, flen, tnm, tlen, cred, THREAD2PROC);
 
  exit:
     CODADEBUG(CODA_RENAME, myprintf(("in rename result %d\n",error));)
@@ -1822,17 +2160,19 @@ coda_rename(v)
     /* From-vnodes are not locked, only ref'd.  To-vnodes are locked. */
 
     vrele(ap->a_fvp);
-    vrele(odvp);
+    vrele(fdvp);
 
     if (ap->a_tvp) {
-	if (ap->a_tvp == ndvp) {
+	if (ap->a_tvp == tdvp) {
+	    ASSURE_UNLOCKED(ap->a_tvp);
 	    vrele(ap->a_tvp);
 	} else {
 	    vput(ap->a_tvp);
 	}
     }
 
-    vput(ndvp);
+    vput(tdvp);
+    ASSURE_UNLOCKED(fdvp);
 LEAVE;
     return(error);
 }
@@ -1851,25 +2191,30 @@ coda_mkdir(v)
     struct ucred *cred = cnp->cn_cred;
     THREAD *td = cnp->cn_thread;
 /* locals */
-    int error;
+    int error = 0;
     const char *nm = cnp->cn_nameptr;
     int len = cnp->cn_namelen;
     struct cnode *cp;
     CodaFid VFid;
     struct vattr ova;
 
+    ENTRY;
     MARK_ENTRY(CODA_MKDIR_STATS);
+    ASSURE_LOCKED(dvp);
 
     /* Check for mkdir of target object. */
     if (IS_CTL_NAME(dvp, nm, len)) {
 	*vpp = (struct vnode *)0;
 	MARK_INT_FAIL(CODA_MKDIR_STATS);
+	LEAVE;
 	return(EACCES);
     }
 
     if (len+1 > CODA_MAXNAMLEN) {
 	*vpp = (struct vnode *)0;
 	MARK_INT_FAIL(CODA_MKDIR_STATS);
+	vput(dvp);
+	LEAVE;
 	return(EACCES);
     }
 
@@ -1900,13 +2245,23 @@ coda_mkdir(v)
 	/* Invalidate the parent's attr cache, the modification time has changed */
 	VTOC(dvp)->c_flags &= ~C_VATTR;
 	
+	if ((error = vn_lock(*vpp, LK_EXCLUSIVE, td))) 
+	{
+	    myprintf(("coda_mkdir: "));
+	    panic(" couldn't lock child directory");
+	}
+	
 	CODADEBUG( CODA_MKDIR, myprintf(("mkdir: %s result %d\n",
 					 coda_f2s(&VFid), error)); )
 	} else {
 	*vpp = (struct vnode *)0;
 	CODADEBUG(CODA_MKDIR, myprintf(("mkdir error %d\n",error));)
     }
+    vput(dvp);
+    if(*vpp)
+	ASSURE_LOCKED(*vpp);
 
+    LEAVE;
     return(error);
 }
 
@@ -1923,7 +2278,7 @@ coda_rmdir(v)
     struct ucred *cred = cnp->cn_cred;
     THREAD *td = cnp->cn_thread;
 /* true args */
-    int error;
+    int error = 0;
     const char *nm = cnp->cn_nameptr;
     int len = cnp->cn_namelen;
     struct cnode *cp;
@@ -1934,11 +2289,18 @@ coda_rmdir(v)
     
     MARK_ENTRY(CODA_RMDIR_STATS);
 
+    if(VTOC(vp) == VTOC(dvp))
+    {
+	/* Refuse removing directory "." */
+	vrele(dvp);
+	vput(vp);
+	return EINVAL;
+    }
+
     /* Check for rmdir of control object. */
     if (IS_CTL_NAME(dvp, nm, len)) {
+	vput(dvp);
 	MARK_INT_FAIL(CODA_RMDIR_STATS);
-        ASSURE_LOCKED(dvp);
-        ASSURE_LOCKED(vp);
         LEAVE;
 	return(ENOENT);
     }
@@ -1962,25 +2324,11 @@ coda_rmdir(v)
 
     error = venus_rmdir(vtomi(dvp), &dcp->c_fid, nm, len, cred, THREAD2PROC);
     
-    if(!error && VOP_ISLOCKED(dvp))
-    {
-        if (coda_lockdebug) {
-            myprintf(("coda_rmdir: Unlocking locked parent\n"));
-        }
-        VOP_UNLOCK(dvp, 0, td);
-    }
-    if(!error && VOP_ISLOCKED(vp))
-    {
-        if (coda_lockdebug) {
-            myprintf(("coda_rmdir: Unlocking removed leaf\n"));
-        }
-        VOP_UNLOCK(vp, 0, td);
-    }
+    vput(vp);
+    vput(dvp);
     
     CODADEBUG(CODA_RMDIR, myprintf(("in rmdir result %d\n", error)); )
         
-    ASSURE_LOCKED(dvp);
-    ASSURE_LOCKED(vp);
     LEAVE;
     return(error);
 }
@@ -2000,7 +2348,7 @@ coda_symlink(v)
     THREAD *td = cnp->cn_thread;
     struct vnode **vpp = ap->a_vpp;
 /* locals */
-    int error;
+    int error = 0;
     /* 
      * XXX I'm assuming the following things about coda_symlink's
      * arguments: 
@@ -2021,26 +2369,27 @@ coda_symlink(v)
      * returns the resultant vnode in a vpp argument.
      */
     ENTRY;
+    ASSURE_LOCKED(tdvp);
 
     MARK_ENTRY(CODA_SYMLINK_STATS);
 
     /* Check for symlink of control object. */
     if (IS_CTL_NAME(tdvp, nm, len)) {
 	MARK_INT_FAIL(CODA_SYMLINK_STATS);
-	LEAVE;
-	return(EACCES);
+	error = EACCES;
+	goto out;
     }
 
     if (plen+1 > CODA_MAXPATHLEN) {
 	MARK_INT_FAIL(CODA_SYMLINK_STATS);
-	LEAVE;
-	return(EINVAL);
+	error = EINVAL;
+	goto out;
     }
 
     if (len+1 > CODA_MAXNAMLEN) {
 	MARK_INT_FAIL(CODA_SYMLINK_STATS);
 	error = EINVAL;
-	goto exit;
+	goto out;
     }
 
     error = venus_symlink(vtomi(tdvp), &tdcp->c_fid, path, plen, nm, len, tva, cred, THREAD2PROC);
@@ -2051,8 +2400,13 @@ coda_symlink(v)
     if (error == 0)
 	error = VOP_LOOKUP(tdvp, vpp, cnp);
 
- exit:    
+ out:    
     CODADEBUG(CODA_SYMLINK, myprintf(("in symlink result %d\n",error)); )
+    vput(tdvp);
+    if(*vpp)
+    {
+	vput(*vpp);
+    }
     LEAVE;
     return(error);
 }
@@ -2108,19 +2462,27 @@ coda_readdir(v)
 #else /* !DARWIN */
 	    error = VOP_OPEN(vp, FREAD, cred, td, -1);
 #endif /* !DARWIN */
-	myprintf(("coda_readdir: Internally Opening %p\n", vp));
+	//myprintf(("coda_readdir: Internally Opening %p\n", vp));
 	    if (error) {
 		myprintf(("coda_readdir: VOP_OPEN on container failed %d\n", error));
                 ASSURE_LOCKED(vp);
         	LEAVE;
 		return (error);
 	    }
+/* This is readdir, the code below should never ever be run */
 	    if (vp->v_type == VREG) {
+		myprintf(("coda_readdir: Readdir on a regular file ????\n"));
+		/* Should ba a panic really, but for now... */
+		error=EINVAL;
+		LEAVE;
+		return(error);
+#ifndef DARWIN
 		error = vfs_object_create(vp, td, cred);
 		if (error != 0) {
 		    myprintf(("coda_readdir: vfs_object_create() returns %d\n", error));
 		    vput(vp);
 		}
+#endif
 	    }
 	    if (error) 
 	    {
@@ -2176,10 +2538,13 @@ coda_bmap(v)
 	struct cnode *cp;
 
 	ENTRY;
+	ASSURE_LOCKED(vp);
+
 	cp = VTOC(vp);
 	if (cp->c_ovp) {
+	        error=EINVAL;
         	LEAVE;  
-		return EINVAL;
+		return error;
 #ifdef DARWIN
                 error =  VOP_BMAP(cp->c_ovp, bn, vpp, bnp, ap->a_runp);
 #else /* !DARWIN */
@@ -2189,12 +2554,18 @@ coda_bmap(v)
 		myprintf(("VOP_BMAP(cp->c_ovp %p, bn %p, vpp %p, bnp %lld, ap->a_runp %p, ap->a_runb %p) = %d\n",
 			cp->c_ovp, bn, vpp, bnp, ap->a_runp, ap->a_runb, error));
 #endif
+	        ASSURE_LOCKED(vp);
+		if(*vpp)
+		    ASSURE_UNLOCKED(*vpp);
         	LEAVE;
 		return error;
 	} else {
 #if	0
 		myprintf(/"coda_bmap: no container\n"));
 #endif
+	        ASSURE_LOCKED(vp);
+		if(*vpp)
+		    ASSURE_UNLOCKED(*vpp);
     		LEAVE;
 		return(EOPNOTSUPP);
 	}
@@ -2210,13 +2581,17 @@ coda_reclaim(v)
     struct cnode *cp = VTOC(vp);
 /* upcall decl */
 /* locals */
-    int error=0;
+    struct vnode *cfvp;
+    int error = 0;
 
 /*
  * Forced unmount/flush will let vnodes with non zero use be destroyed!
  */
     ENTRY;
     ASSURE_UNLOCKED(vp);
+
+    cfvp=NULL;
+    if(cp) cfvp=cp->c_ovp;
 
     if (IS_UNMOUNTING(cp)) {
 #ifdef	DEBUG
@@ -2236,9 +2611,9 @@ coda_reclaim(v)
     }	
     cache_purge(vp);
     lockdestroy(&(VTOC(vp)->c_lock));
+    ASSURE_UNLOCKED(vp);
     coda_free(VTOC(vp));
     VTOC(vp) = NULL;
-    ASSURE_UNLOCKED(vp);
     LEAVE;
     return (error);
 }
@@ -2254,7 +2629,7 @@ coda_lock(v)
     THREAD *td = ap->a_td;
 /* upcall decl */
 /* locals */
-    int error;
+    int error = 0;
     struct lock__bsd__ *lkp = &cp->c_lock;
 
 
@@ -2286,18 +2661,27 @@ void *v;
     THREAD *td = ap->a_td;
     /* upcall decl */
     /* locals */
-    int error;
+    int error = 0;
     
     ENTRY;
     if (coda_lockdebug) 
     {
 	myprintf(("Attempting unlock %p at %p on %s vp=%p, cp=%p\n", ap->a_flags, &vp->v_interlock, coda_f2s(&cp->c_fid), vp, cp));
     }
+
+    if(!lockstatus(&cp->c_lock, ap->a_td))
+    {
+	myprintf((" The vnode %p is not locked at all, so I'll try to avoid a panic here so that we can examine things\n",vp));
+	LEAVE;
+	return 0;
+    }
+
     if(!coda_islockedbyme(vp,0))
     {
 	myprintf((" The vnode %p is not locked by myself, so I'll try to avoid a panic here so that we can examine things\n",vp));
+	error=ENOLCK;
 	LEAVE;
-	return ENOLCK;
+	return error;
     }
 #ifndef	DEBUG_LOCKS
     error=lockmgr(&cp->c_lock, ap->a_flags| LK_RELEASE, &vp->v_interlock, td);
@@ -2318,11 +2702,11 @@ coda_islocked(v)
     struct vop_islocked_args *ap = v;
     struct cnode *cp = VTOC(ap->a_vp);
     
-    int error;
-    ENTRY;
+    int error = 0;
+    //ENTRY;
 
     error=lockstatus(&cp->c_lock, ap->a_td);
-    LEAVE;
+    //LEAVE;
     return error;
 }
 
@@ -2336,19 +2720,19 @@ coda_islockedbyme(struct vnode *vp, int locktype)
     struct lock__bsd__ *lkp;
     pid_t pid = td->p_pid;
     
-    int error;
-    ENTRY;
+    int error = 0;
+    //ENTRY;
     if(!vp)
     {
         myprintf(("coda_islockedbyme: NOTE VP IS NULL\n"));
-        LEAVE;
+       // LEAVE;
         return error;
     }
     cp = VTOC(vp);
     if(!cp)
     {
         myprintf(("coda_islockedbyme: NOTE CP IS NULL vp=%p\n", vp));
-        LEAVE;
+        //LEAVE;
         return error;
     }
     
@@ -2357,11 +2741,11 @@ coda_islockedbyme(struct vnode *vp, int locktype)
     error=lockstatus(lkp, td);
     if(error && pid == lkp->lk_lockholder && lkp->lk_lockthread == self)
     {
-        LEAVE;
+        //LEAVE;
         return error;
     }
-    LEAVE;
-    return error;
+   // LEAVE;
+    return 0;
 }
 
 
@@ -2469,7 +2853,8 @@ print_cred(cred)
 	myprintf(("\n"));
 
 }
-
+extern long numvnodes, freevnodes;
+extern long inactivevnodes;
 /*
  * Return a vnode for the given fid.
  * If no cnode exists for this fid create one and put it
@@ -2483,31 +2868,41 @@ make_coda_node(fid, vfsp, type)
      CodaFid *fid; struct mount *vfsp; short type;
 {
     struct cnode *cp;
-    int          err;
+    struct vnode *vp;
+    int          error=0;
 
-    if ((cp = coda_find(fid)) == NULL) {
-	struct vnode *vp;
+    ENTRY;
+    if ((cp = coda_find(fid)) == NULL) 
+    {
 	
 	cp = coda_alloc();
 	if(cp == 0) return 0;
 	lockinit(&cp->c_lock, PINOD, "cnode", 0, 0);
 	cp->c_fid = *fid;
 	
-	err = getnewvnode("coda", vfsp, coda_vnodeop_p, &vp);  
-	if (err) {                                                
-	    panic("coda: getnewvnode returned error %d\n", err);   
+	error = getnewvnode("coda", vfsp, coda_vnodeop_p, &vp);  
+	if (error) {                                                
+	    panic("coda: getnewvnode returned error %d\n", error);   
 	}                                                         
 	vp->v_data = cp;                                          
 	vp->v_type = type;
+//	myprintf(("make_coda_node A: numvnodes=%d, freevnodes=%d, inactivevnodes=%d\n",numvnodes,freevnodes,inactivevnodes));
+
 #ifdef DARWIN
-        if (type == VREG) 
+	vp->v_ubcinfo = UBC_NOINFO;
+        if ( (UBCINFOMISSING(vp) || UBCINFORECLAIMED(vp))) {
             ubc_info_init(vp);
+        } 
+	else {
+                vp->v_ubcinfo = UBC_NOINFO;
+        }
 #endif /* DARWIN */
 	cp->c_vnode = vp;                                         
 	coda_save(cp);
 	
     } else {
-	vref(CTOV(cp));
+	vp=CTOV(cp);
+	VREF(vp);
     }
     
 #ifdef CNODE_NAME_DEBUG
@@ -2515,6 +2910,7 @@ make_coda_node(fid, vfsp, type)
 	    SET_CNODE_NAME("No name yet!");
 #endif
 
+    LEAVE;
     return cp;
 }
 
@@ -2523,9 +2919,10 @@ coda_pathconf(v)
 	void *v;
 {
 	struct vop_pathconf_args *ap;
-	int error;
+	int error = 0;
 	register_t *retval;
 
+	ENTRY;
 	ap = v;
 	retval = ap->a_retval;
 	error = 0;
@@ -2546,6 +2943,7 @@ coda_pathconf(v)
 		break;
 	}
 
+	LEAVE;
 	return (error);
 }
 
@@ -2575,7 +2973,6 @@ coda_pagein(void *v)
 
     int error = 0;
 
-    ASSURE_LOCKED(vp);
     ENTRY;
 
     MARK_ENTRY(CODA_PAGEIN_STATS); 
@@ -2631,22 +3028,8 @@ coda_pagein(void *v)
             myprintf(("coda_pagein: Internally Opening %p\n", vp));
 	    if (error) {
 		myprintf(("coda_pagein: VOP_OPEN on container failed %d\n", error));    
-                ASSURE_LOCKED(vp);
         	LEAVE;
 		return (error);
-	    }
-	    if (vp->v_type == VREG) {
-		error = vfs_object_create(vp, td, cred);
-		if (error != 0) {
-		    myprintf(("coda_pagein: vfs_object_create() returns %d\n", error));
-		    vput(vp);
-		}
-	    }
-	    if (error) {
-		MARK_INT_FAIL(CODA_RDWR_STATS);    
-                ASSURE_LOCKED(vp);
-        	LEAVE;
-		return(error);
 	    }
 	    cfvp = cp->c_ovp;
 	}
@@ -2690,19 +3073,49 @@ coda_advlock(void *v)
 	int op = ap->a_op;
         register struct flock *fl = ap->a_fl;
 	int flags=ap->a_flags;
-	int error;
+	int error = 0;
 	ENTRY;
+	ASSURE_UNLOCKED(vp);
 
 	if(cp == NULL || cp->c_ovp == NULL )
 	{
 		myprintf(("coda_advlock: vp=%p, cp=%p\n",vp,cp));
+		ASSURE_UNLOCKED(vp);
 		error=EINVAL;
 		LEAVE;
 		return error;
 	}
 /* let UFS/HFS advlock do the job on the cache file */
 	error=VOP_ADVLOCK(cp->c_ovp, id, op, fl, flags);
+	ASSURE_UNLOCKED(vp);
 	LEAVE;
 	return error;
+}
+
+extern void lockmgr_printinfo(struct lock__bsd__ *lkp); 
+
+/*
+ * Print out the contents of a vnode.
+ */
+int
+coda_print(void *v)
+{
+        struct vop_print_args /* {
+                struct vnode *a_vp;
+        } */ *ap=v;
+
+        register struct vnode *vp = ap->a_vp;
+        register struct cnode *cp = VTOC(vp);
+
+	printf("Vnode %p, cp=%p\n",vp,cp); 
+        if (cp)
+	{
+		printf("    c_ovp=%p\n",cp->c_ovp);
+		if(cp->c_ovp)
+			vprint("    cache file:", cp->c_ovp);
+	}
+        lockmgr_printinfo(&cp->c_lock);
+        printf("\n");
+        return (0);
 }
 
