@@ -50,6 +50,20 @@ int coda_vfsopstats_init(void);
 int coda_fhtovp(struct mount *, struct fid *, struct mbuf *, struct vnode **,
                       int *, struct ucred **);
 
+#ifdef DARWIN
+typedef int vfs_mount_t(struct mount *mp, char *path, caddr_t data, struct nameidata *ndp, struct proc *p);
+typedef int vfs_start_t(struct mount *mp, int flags, struct proc *p);
+typedef int vfs_unmount_t(struct mount *mp, int mntflags, struct proc *p);
+typedef int vfs_root_t(struct mount *mp, struct vnode **vpp);
+typedef int vfs_quotactl_t(struct mount *mp, int cmds, uid_t uid,caddr_t arg, struct proc *p);
+typedef int vfs_statfs_t(struct mount *mp, struct statfs *sbp, struct proc *p);
+typedef int vfs_sync_t(struct mount *mp, int waitfor, struct ucred *cred, struct proc *p);
+typedef int vfs_vget_t(struct mount *mp, void *ino, struct vnode **vpp);
+typedef int vfs_fhtovp_t(struct mount *mp, struct fid *fhp, struct mbuf *nam, struct vnode **vpp);
+typedef int vfs_vptofh_t(struct vnode *vp, struct fid *fhp);
+typedef int vfs_init_t(struct vfsconf *);
+
+#else /* !DARWIN */
 vfs_mount_t	coda_mount;
 vfs_start_t	coda_start;
 vfs_unmount_t	coda_unmount;
@@ -60,5 +74,6 @@ vfs_sync_t	coda_sync;
 vfs_vget_t	coda_vget;
 vfs_vptofh_t	coda_vptofh;
 vfs_init_t	coda_init;
+#endif /* !DARWIN */
 
 int getNewVnode(struct vnode **vpp);
