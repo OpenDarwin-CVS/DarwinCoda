@@ -484,7 +484,6 @@ coda_nb_statfs(vfsp, sbp, td)
     	#define NB_SFS_SIZ 0x895440
      */
     /* Note: Normal fs's have a bsize of 0x400 == 1024 */
-    sbp->f_type = vfsp->mnt_vfc->vfc_typenum;
     sbp->f_bsize = 8192; /* XXX */
     sbp->f_iosize = 8192; /* XXX */
 #define NB_SFS_SIZ 0x8AB75D
@@ -493,11 +492,20 @@ coda_nb_statfs(vfsp, sbp, td)
     sbp->f_bavail = NB_SFS_SIZ;
     sbp->f_files = NB_SFS_SIZ;
     sbp->f_ffree = NB_SFS_SIZ;
-    bcopy((caddr_t)&(vfsp->mnt_stat.f_fsid), (caddr_t)&(sbp->f_fsid), sizeof (fsid_t));
-    snprintf(sbp->f_mntonname, sizeof(sbp->f_mntonname), "/coda");
-    snprintf(sbp->f_mntfromname, sizeof(sbp->f_mntfromname), "CODA");
+    if (sbp != &vfsp->mnt_stat)
+    {
+        memcpy((caddr_t) & sbp->f_mntonname[0], (caddr_t) vfsp->mnt_stat.f_mntonname, MNAMELEN);
+        memcpy((caddr_t) & sbp->f_mntfromname[0], (caddr_t) vfsp->mnt_stat.f_mntfromname, MNAMELEN);
+    }
+    else
+    {
+	    snprintf(sbp->f_mntonname, sizeof(sbp->f_mntonname), "/coda");
+	    snprintf(sbp->f_mntfromname, sizeof(sbp->f_mntfromname), "CODA");
+    }
+    sbp->f_type = vfsp->mnt_vfc->vfc_typenum;
     snprintf(sbp->f_fstypename, sizeof(sbp->f_fstypename), "coda");
-/*  MARK_INT_SAT(CODA_STATFS_STATS); */
+    bcopy((caddr_t)&(vfsp->mnt_stat.f_fsid), (caddr_t)&(sbp->f_fsid), sizeof (fsid_t));
+    MARK_INT_SAT(CODA_STATFS_STATS);
     LEAVE;
     return(0);
 }
