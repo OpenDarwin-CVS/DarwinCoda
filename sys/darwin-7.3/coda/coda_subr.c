@@ -58,7 +58,9 @@ __FBSDID("$FreeBSD: src/sys/coda/coda_subr.c,v 1.28 2003/11/05 04:30:06 kan Exp 
 #include <sys/systm.h>
 #include <sys/lock.h>
 #include <sys/malloc.h>
+#ifndef DARWIN
 #include <sys/mutex.h>
+#endif /* !DARWIN */
 #include <sys/mount.h>
 
 #include <coda/coda.h>
