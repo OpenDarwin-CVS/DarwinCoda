@@ -64,7 +64,8 @@ __FBSDID("$FreeBSD: src/sys/coda/coda_vfsops.c,v 1.47 2003/09/13 01:13:56 tjr Ex
 
 MALLOC_DEFINE(M_CODA, "CODA storage", "Various Coda Structures");
 
-int codadebug = 0;
+/* long long codadebug = CODADBGMSK(CODA_LOOKUP) | CODADBGMSK(CODA_SETATTR); */
+long long codadebug = 0;
 int coda_vfsop_print_entry = 0;
 #define ENTRY    if(coda_vfsop_print_entry) PRINTENTRY
 #define LEAVE    if(coda_vfsop_print_entry) PRINTLEAVE
@@ -303,7 +304,7 @@ coda_unmount(vfsp, mntflags, td)
         }
 
 #ifdef	DEBUG
-	printf("coda_unmount: ROOT: vp %p, cp %p\n", mi->mi_rootvp, VTOC(mi->mi_rootvp));
+	myprintf(("coda_unmount: ROOT: vp %p, cp %p\n", mi->mi_rootvp, VTOC(mi->mi_rootvp)));
 #endif
 	vrele(mi->mi_rootvp);
 	active = coda_kill(vfsp, NOT_DOWNCALL);
@@ -311,7 +312,7 @@ coda_unmount(vfsp, mntflags, td)
 	mi->mi_rootvp->v_vflag &= ~VV_ROOT;
 	error = vflush(mi->mi_vfsp, 0, FORCECLOSE);
 #ifdef CODA_VERBOSE
-	printf("coda_unmount: active = %d, vflush active %d\n", active, error);
+	myprintf(("coda_unmount: active = %d, vflush active %d\n", active, error));
 #endif
 	error = 0;
 	/* I'm going to take this out to allow lookups to go through. I'm
@@ -368,24 +369,23 @@ coda_root(vfsp, vpp)
 	 * node to avoid a deadlock. This bug is fixed in the Coda CVS
 	 * repository but not in any released versions as of 6 Mar 2003.
 	 */
-	if (memcmp(&VTOC(mi->mi_rootvp)->c_fid, &invalfid,
+	if (mi && mi->mi_rootvp &&
+            VTOC(mi->mi_rootvp) &&
+	    &VTOC(mi->mi_rootvp)->c_fid &&
+	    memcmp(&VTOC(mi->mi_rootvp)->c_fid, &invalfid,
 	    sizeof(CodaFid)) != 0 || mi->mi_started == 0)
 	    { /* Found valid root. */
 		*vpp = mi->mi_rootvp;
 		/* On Mach, this is vref.  On NetBSD, VOP_LOCK */
-#ifndef USE_VGET
                 if(VOP_ISLOCKED(*vpp))
                 {
                     myprintf(("Avoiding locking the root against myself on line %d\n",__LINE__));
+                    vref(*vpp);
                 }
                 else
-                {
-                    vref(*vpp);
-                    vn_lock(*vpp, LK_EXCLUSIVE, td);
-                }
-#else
-		vget(*vpp, LK_EXCLUSIVE, td);
-#endif
+		{ 
+		    vget(*vpp, LK_EXCLUSIVE, td); 
+		}
 		MARK_INT_SAT(CODA_ROOT_STATS);
                 ASSURE_LOCKED(*vpp);
                 LEAVE;
@@ -585,9 +585,7 @@ coda_fhtovp(vfsp, fhp, nam, vpp, exflagsp, creadanonp)
 	CODADEBUG(CODA_VGET, myprintf(("vget error %d\n",error));)
 	    *vpp = (struct vnode *)0;
     } else {
-	CODADEBUG(CODA_VGET, 
-		 myprintf(("vget: %s type %d result %d\n",
-			coda_f2s(&VFid), vtype, error)); )	    
+	CODADEBUG(CODA_VGET, myprintf(("vget: %s type %d result %d\n", coda_f2s(&VFid), vtype, error)); )	    
 	cp = make_coda_node(&VFid, vfsp, vtype);
         if(cp==0) return ENOMEM;
 
