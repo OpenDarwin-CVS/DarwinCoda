@@ -248,6 +248,7 @@ static struct cdevsw coda_cdevsw = {
     .d_read =	vc_nb_read,
     .d_write =	vc_nb_write,
     .d_ioctl =	vc_nb_ioctl,
+    .d_select =	vc_nb_select,
 };
 
 int coda_vc_major=-1;
