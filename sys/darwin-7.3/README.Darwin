@@ -24,11 +24,11 @@ To do:
 	5. Add code that handles the Darwin ubc buffers.
 	   Status: Done
 
-Milestones:
+Mileatones:
 At each milestone achieved, Check in all changes to CVS and set a tag.
 
 	6. The kext survives the starting of venus.
-	   Status: OK.
+	   Status: OK. (Well, now it is)
 	7. The welcome file at /coda/testserver.coda.cs.cmu.edu/Welcome can be read.
 	   Status: Not tested.
 	8. When a file can be written into /coda/testserver.coda.cs.cmu.edu/Welcome/playground.
