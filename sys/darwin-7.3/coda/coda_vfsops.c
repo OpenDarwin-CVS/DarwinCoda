@@ -142,6 +142,7 @@ coda_mount(vfsp, path, data, ndp, td)
     MARK_ENTRY(CODA_MOUNT_STATS);
     if (CODA_MOUNTED(vfsp)) {
 	MARK_INT_FAIL(CODA_MOUNT_STATS);
+        LEAVE;
 	return(EBUSY);
     }
     
@@ -152,12 +153,14 @@ coda_mount(vfsp, path, data, ndp, td)
 
     if (error) {
 	MARK_INT_FAIL(CODA_MOUNT_STATS);
+        LEAVE;
 	return (error);
     }
     if (dvp->v_type != VCHR) {
 	MARK_INT_FAIL(CODA_MOUNT_STATS);
 	vrele(dvp);
 	NDFREE(ndp, NDF_ONLY_PNBUF);
+        LEAVE;
 	return(ENXIO);
     }
     dev = dvp->v_rdev;
@@ -170,11 +173,13 @@ coda_mount(vfsp, path, data, ndp, td)
     if (devsw(dev)->d_open != vc_nb_open)
     {
 	MARK_INT_FAIL(CODA_MOUNT_STATS);
+        LEAVE;
 	return(ENXIO);
     }
     
     if (minor(dev) >= NVCODA || minor(dev) < 0) {
 	MARK_INT_FAIL(CODA_MOUNT_STATS);
+        LEAVE;
 	return(ENXIO);
     }
     
@@ -185,6 +190,7 @@ coda_mount(vfsp, path, data, ndp, td)
     
     if (!VC_OPEN(&mi->mi_vcomm)) {
 	MARK_INT_FAIL(CODA_MOUNT_STATS);
+        LEAVE;
 	return(ENODEV);
     }
     
@@ -206,7 +212,11 @@ coda_mount(vfsp, path, data, ndp, td)
      * to coda_root in case a server is down while venus is starting.
      */
     cp = make_coda_node(&rootfid, vfsp, VDIR);
-    if(cp==0) return ENOMEM;
+    if(cp==0) 
+    {
+        LEAVE;
+        return ENOMEM;
+    }
     rootvp = CTOV(cp);
     rootvp->v_vflag |= VV_ROOT;
 	
@@ -216,7 +226,11 @@ coda_mount(vfsp, path, data, ndp, td)
     when closing down the system.
  */
     cp = make_coda_node(&ctlfid, 0, VCHR);
-    if(cp==0) return ENOMEM;
+    if(cp==0) 
+    {
+        LEAVE;
+        return ENOMEM;
+    }
 
 
     coda_ctlvp = CTOV(cp);
@@ -245,7 +259,7 @@ coda_mount(vfsp, path, data, ndp, td)
 	MARK_INT_SAT(CODA_MOUNT_STATS);
 	coda_instances++;
     }
-    
+    LEAVE;
     return(error);
 }
 
@@ -262,12 +276,16 @@ coda_unmount(vfsp, mntflags, td)
     MARK_ENTRY(CODA_UMOUNT_STATS);
     if (!CODA_MOUNTED(vfsp)) {
 	MARK_INT_FAIL(CODA_UMOUNT_STATS);
+        LEAVE;
 	return(EINVAL);
     }
     
     if (mi->mi_vfsp == vfsp) {	/* We found the victim */
 	if (!IS_UNMOUNTING(VTOC(mi->mi_rootvp)))
+        {
+            LEAVE;
 	    return (EBUSY); 	/* Venus is still running */
+        }
 
 #ifdef	DEBUG
 	printf("coda_unmount: ROOT: vp %p, cp %p\n", mi->mi_rootvp, VTOC(mi->mi_rootvp));
@@ -296,9 +314,10 @@ coda_unmount(vfsp, mntflags, td)
 	    MARK_INT_SAT(CODA_UMOUNT_STATS);
 	    coda_instances--;
 	}
-
+        LEAVE;
 	return(error);
     }
+    LEAVE;  
     return (EINVAL);
 }
 
@@ -432,9 +451,10 @@ coda_start(mp, flags, td)
 	int flags;
 	THREAD *td;
 {
-
+        ENTRY;  
 	/* XXX See coda_root(). */
 	vftomi(mp)->mi_started = 1;
+        LEAVE;
 	return (0);
 }
 
@@ -474,6 +494,7 @@ coda_nb_statfs(vfsp, sbp, td)
     snprintf(sbp->f_mntfromname, sizeof(sbp->f_mntfromname), "CODA");
     snprintf(sbp->f_fstypename, sizeof(sbp->f_fstypename), "coda");
 /*  MARK_INT_SAT(CODA_STATFS_STATS); */
+    LEAVE;
     return(0);
 }
 
@@ -487,7 +508,7 @@ coda_sync(vfsp, waitfor, cred, td)
     struct ucred *cred;
     THREAD *td;
 {
-    ENTRY;
+//    ENTRY;
     MARK_ENTRY(CODA_SYNC_STATS);
     MARK_INT_SAT(CODA_SYNC_STATS);
     return(0);
