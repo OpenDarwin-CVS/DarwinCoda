@@ -37,9 +37,13 @@ __FBSDID("$FreeBSD: src/sys/coda/coda_venus.c,v 1.18 2003/09/07 07:43:09 tjr Exp
 #include <sys/ioccom.h>
 #include <sys/lock.h>
 #include <sys/malloc.h>
+#ifndef DARWIN
 #include <sys/mutex.h>
+#endif /* !DARWIN */
 #include <sys/proc.h>
+#ifndef DARWIN
 #include <sys/sx.h>
+#endif /* !DARWIN */
 
 #include <coda/coda.h>
 #include <coda/cnode.h>
