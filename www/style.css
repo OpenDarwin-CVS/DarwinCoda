@@ -1,0 +1,73 @@
+<style type="text/css">
+<!--
+
+BODY 
+	{	margin-top: 0;
+		margin-bottom: 0;
+		margin-left: 0;
+		margin-right: 0;
+		background-color: #ffffff;
+	}
+A:link		 { color: navy }
+A:link:hover	 { color: HighlightText; text-decoration: underline }
+A:active	{ COLOR: #FF6600; TEXT-DECORATION: underline}
+
+A:visited	 { color: GrayText; text-decoration: none }
+A:visited:hover	 { color: InactiveCaptionText; text-decoration: underline } 
+
+
+H1,
+h1
+	 { font-size: 14px; font-family: "lucida grande", geneva, helvetica, arial, sans-serif; font-weight: bold }
+
+p,
+P,
+td,
+TD,
+ol,
+OL,
+ul,
+UL,
+li,
+LI
+	 { font-size: 12px; font-family: "Times New Roman", Times, serif, "Hoefler Text" }
+
+th,
+TH
+	{
+	font-family: lucida grande, geneva, helvetica, arial, sans-serif;
+	font-size: 12px;
+	font-weight: bold;
+	}
+
+
+pre,
+PRE,
+code,
+CODE
+	{
+	font-family: Courier, Courier New;
+	font-size: 10px;
+	}
+#title
+	 { color: navy; font-size: 18px; font-family: helvetica, geneva, arial, sans-serif; font-weight: bold; line-height: 24px }
+
+#subtitle
+        {
+        font-weight: bold;
+        font-family: helvetica, geneva, arial, sans-serif;
+        font-size: 12px;
+        font-style: italic;
+        color: #666666;
+        }
+
+#bodytitle
+	{
+	font-weight: bold;
+	font-size: 12px;
+	font-family: lucida grande, geneva, helvetica, arial, sans-serif
+	}
+
+-->
+</style>
+

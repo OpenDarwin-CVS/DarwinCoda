@@ -1,0 +1,114 @@
+<html>
+<head>
+		<link href="style.css" rel="stylesheet" type="text/css" media="all">
+		<style type="text/css" media="screen"><!--
+#apa { color: lime; font-variant: small-caps; text-align: left }
+@font-face { font-family: Tahoma, fantasy; font-size: 33 }
+--></style>
+		<meta http-equiv="Content-type" content="text/html; charset=iso-8859-1" />
+   <title>DarwinCoda project</title>
+</head>
+
+<body>
+<p><span id="title">DarwinCoda</span></p>
+<p><span id="subtitle">Coda for Darwin and Mac OS X</span></p>
+		<p><b><font size="+3">
+Welcome to the DarwinCoda project
+</font></b></p>
+		<p><span id="bodytitle">What's DarwinCoda ?</span></p>
+		<p>
+The DarwinCoda project aims to provide the missing bits and pieces for the Coda File system, that is, the missing bits and pieces for 
+Darwin and MacOS X. The most important piece is the kernel extension needed to be able to use Coda.
+
+		
+		<p><span id="bodytitle">What's Coda ?</span></p>
+		<p>The Coda file system is a Reserarch project at the Carnegie-Mellon University. Most of the development of Coda happens there. You should have a look into <a href="http://coda.cs.cmu.edu">their website</a> to get more than a hunch what this is all about. What use to be the most interesting thing with Coda is its ability to act like a decent distributed file system even when you are not connected to any networks, something that comes in handy for all those iBooks and PowerBooks.</p>
+		<p><span id="bodytitle">Disclaimer</span></p>
+		<p>As said in the previous paragraph, Coda is a Research Project. This means that anything can happen. This goes for the DarwinCoda project as well. It you use the code found within this project, yo do it at your own risk. Since there is kernel code involved, any damages can occur, including data loss and even permanent equipment damage. <b>You have been warned!</b> None of the project members will assume any liability for anything that might happen due to usage of this software.</p>
+		<p><span id="bodytitle">License</span></p>
+		<p>All software within the DarwinCoda project is available according to the BSD license and/or the ASPL license. You are bound to accept the terms of usage  of these  licenses. The Coda proper code, which is maintained by CMU is available according to the GPL license. </p>
+		<p><span id="bodytitle">Project mailing lists</span></p>
+<p>
+The <a href="http://opendarwin.org/mailman/listinfo/DarwinCoda">darwincoda</a> mailing list is where most discussions are held.  Only list subscribers may post to the list, but anyone is welcome to subscribe.
+Those wishing to see the cvs commit logs which detail the change-by-change progress of the project can also subscribe to the <a href="http://opendarwin.org/mailman/listinfo/cvs-darwincoda-all">cvs-darwincoda-all</a> mailing list.
+</p>
+
+<p><span id="bodytitle"><a name="Anchor-Getting-47857" id="Anchor-Getting-47857"></a>Getting the code from CVS</span></p>
+		<p>
+Use the following commands to get DarwinCoda from the OpenDarwin CVS server
+</p>
+		<pre>cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od login
+cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od co -P DarwinCoda
+</pre>
+		<p>
+Just hit return when the server asks you for a password. 
+The CVS repository can be browsed through <a href="http://www.opendarwin.org/cgi-bin/cvsweb.cgi/projects/DarwinCoda">CVSweb</a>.
+</p>
+		<p><span id="bodytitle">Current status of the kernel extension</span></p>
+		<p>As of 2004-05-17, the kernel extension is capable of handling the following operations</p>
+		<ul>
+			<li>Directory listing
+			<li>Directory creation and removal
+			<li>File read and write
+			<li>File creation and deletion
+			<li>Disconnected operation
+			<li>Authenticated operation
+		</ul>
+		<p>Known bugs:</p>
+		<ul>
+			<li>Using the Finder will either hang the Finder, crash venus or cause a kernel panic due to multiple locking of the same object.
+		</ul>
+		<p>To do:</p>
+		<ul>
+			<li>Write support for the getattrlist/setattrlist system calls
+			<li>Stress testing, preferably on a dual CPU system.
+			<li>Explore the places in the coda proper code where darwin differs from the other systems.
+			<li>Test a Mac as a coda server (anyone with an Xserve ? )
+			<li>Write Finder extensions to give a UI to coda ACL's
+			<li>...
+		</ul>
+		<p><span id="bodytitle"><a name="Anchor-Building-49575" id="Anchor-Building-49575"></a>Building the Coda kernel extension</span></p>
+		<p>
+The current version requires you to use Apple's xcode application to build the kernel extension.
+If you don't have it on your machine, you must first install Apple's developer tools.
+
+After checking out from cvs, double-click the  coda_kext.xcode icon located in 
+sys/darwin-7.3 or from the terminal type 
+<pre>open DarwinCoda/sys/darwin-7.3/coda_kext.xcode
+</pre>
+		<p>When xcode is up hit Apple-B, this builds the kext and puts the result in ~/darwin_coda. You should have 1 warning (max).<p><span id="bodytitle">Loading the Coda kernel extension</span></p>
+		<p>The procedure for loading the kernel extension is not a one-liner. I'm using the following shell script. It must be run as root.. The script has the side effect of producing a symbol table for debugging in /var/tmp/ksyms, which comes in handy for debugging the kernel panics you will encounter.</p>
+		<p><code>#!/bin/sh<br>
+				KEXT=darwin_coda.kext<br>
+				(cd /tmp; kextunload $KEXT)<br>
+				rm -rf /tmp/$KEXT<br>
+				cp -R ${HOME}/$KEXT /tmp<br>
+				chown -R root /tmp/$KEXT<br>
+				chgrp -R wheel /tmp/$KEXT<br>
+				<br>
+				(cd /tmp; kextload -v $KEXT)<br>
+				mkdir -p /var/tmp/ksyms<br>
+				(cd /tmp; kextload -n -A -s /var/tmp/ksyms  $KEXT)<br>
+				<br>
+				sync<br>
+				sync</code></p>
+		<p><span id="bodytitle">Getting started</span></p>
+		<p>These instructions apply to  darwin-7.3 (MacOS X panther). You may have to fix bits and pieces on other platforms:</p>
+		<p>Starting Coda  requires a few steps.see <a href="building_coda.html">this document</a> for the details.</p>
+		<ol>
+			<li>Fetching, building and  installing ncurses and readline GNU libraries
+			<li>Fetching, building and installing the lwp, rvm and rpc2 libraries from CMU
+			<li>Fetching, building and installing coda itself from CMU
+			<li>Configure Coda
+			<li>Build and load the kernel extension
+			<li>Start Coda venus
+			<li>Test
+			<li>Report back things that does not work
+		</ol>
+		<p><span id="bodytitle">Developers</span></p>
+		<p>For the moment, which I hope won't last for too long, I'm alone in this project. If you wish to help, drop me a mail</p>
+		<ul type="none">
+			<li><a href="mailto:bernerus+darwincoda@medic.chalmers.se">Christer Bern&eacute;rus</a>
+		</ul>
+	</body>
+</html>
