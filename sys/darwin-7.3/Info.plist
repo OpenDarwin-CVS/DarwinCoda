@@ -20,8 +20,10 @@
 	<string>0.2.0d1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.kernel.bsd</key>
+		<key>com.apple.kernel</key>
 		<string>7.3</string>
+		<key>com.apple.kernel.bsd</key>
+		<string>6.9.9</string>
 		<key>com.apple.kernel.mach</key>
 		<string>6.9.9</string>
 	</dict>
