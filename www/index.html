@@ -34,18 +34,17 @@ Those wishing to see the cvs commit logs which detail the change-by-change progr
 </p>
 
 <p><span id="bodytitle"><a name="Anchor-Getting-47857" id="Anchor-Getting-47857"></a>Getting the code from CVS</span></p>
-		<p>
-Use the following commands to get DarwinCoda from the OpenDarwin CVS server
-</p>
+		<p>There are two branches on the CVS server, the trunk and the Research branch. Currently, the Research branch is in a much better state of health than the  main trunk. However, the code in the Research branch contains lots of largely unnnecessary debugging hooks and other checks. If you wish to see the main trunk code, omit the <tt>-r Research</tt>  argument in the commands below.</p>
+		<p>Use the following commands to get DarwinCoda from the OpenDarwin CVS server</p>
 		<pre>cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od login
-cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od co proj/DarwinCoda
+cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od co -r Research proj/DarwinCoda
 </pre>
 		<p>
 Just hit return when the server asks you for a password. 
 The CVS repository can be browsed through <a href="http://www.opendarwin.org/cgi-bin/cvsweb.cgi/projects/DarwinCoda">CVSweb</a>.
 </p>
 		<p><span id="bodytitle">Current status of the kernel extension</span></p>
-		<p>As of 2004-05-17, the kernel extension is capable of handling the following operations</p>
+		<p>As of 2004-12-03, the Research kernel extension is capable of handling the following operations</p>
 		<ul>
 			<li>Directory listing
 			<li>Directory creation and removal
@@ -53,31 +52,25 @@ The CVS repository can be browsed through <a href="http://www.opendarwin.org/cgi
 			<li>File creation and deletion
 			<li>Disconnected operation
 			<li>Authenticated operation
-		</ul>
+		
+			<li>Finder browsing
+			<li>Application launching (Tested apps: Firefox, &iacute;Tunes, Calculator, iCal, Celestia, iChat,  Internet Explorer:mac 5.2, Mail, Chess, Final Vinyl )</ul>
 		<p>Known bugs:</p>
 		<ul>
-			<li>Using the Finder will either hang the Finder, crash venus or cause a kernel panic due to multiple locking of the same object.
-		</ul>
-		<p>To do:</p>
+			<li>Some applications crash whe lauched from coda, example: Adobe GoLive CS.</ul>
+		<p>Ideas for related projects:</p>
 		<ul>
 			<li>Write support for the getattrlist/setattrlist system calls
-			<li>Stress testing, preferably on a dual CPU system.
-			<li>Explore the places in the coda proper code where darwin differs from the other systems.
+			<li>Stress testing on a dual CPU system.<li>Explore the places in the coda proper code where darwin differs from the other systems.
 			<li>Test a Mac as a coda server (anyone with an Xserve ? )
 			<li>Write Finder extensions to give a UI to coda ACL's
 			<li>...
 		</ul>
 		<p><span id="bodytitle"><a name="Anchor-Building-49575" id="Anchor-Building-49575"></a>Building the Coda kernel extension</span></p>
-		<p>
-The current version requires you to use Apple's xcode application to build the kernel extension.
-If you don't have it on your machine, you must first install Apple's developer tools.
-
-After checking out from cvs, double-click the  coda_kext.xcode icon located in 
-sys/darwin-7.3 or from the terminal type 
-<pre>open DarwinCoda/sys/darwin-7.3/coda_kext.xcode
-</pre>
-		<p>When xcode is up hit Apple-B, this builds the kext and puts the result in ~/darwin_coda. You should have 1 warning (max).<p><span id="bodytitle">Loading the Coda kernel extension</span></p>
-		<p>The procedure for loading the kernel extension is not a one-liner. I'm using the following shell script. It must be run as root.. The script has the side effect of producing a symbol table for debugging in /var/tmp/ksyms, which comes in handy for debugging the kernel panics you will encounter.</p>
+		<p>The current version requires you to use Apple's xcode application to build the kernel extension. If you don't have it on your machine, you must first install Apple's developer tools.
+		<p>To build the stuff, type <tt>make install.</tt></p>
+		<p><span id="bodytitle">Loading the Coda kernel extension</span></p>
+		<p>The procedure for loading the kernel extension is not a one-liner. I'm using the following shell script. It must be run as root.. The script has the side effect of producing a symbol table for debugging in /var/tmp/ksyms, which comes in handy for debugging if you should encounter any kernel panic.</p>
 		<p><code>#!/bin/sh<br>
 				KEXT=darwin_coda.kext<br>
 				(cd /tmp; kextunload $KEXT)<br>
@@ -93,7 +86,7 @@ sys/darwin-7.3 or from the terminal type
 				sync<br>
 				sync</code></p>
 		<p><span id="bodytitle">Getting started</span></p>
-		<p>These instructions apply to  darwin-7.3 (MacOS X panther). You may have to fix bits and pieces on other platforms:</p>
+		<p>These instructions apply to darwin-7.3 (MacOS X Panther). You may have to fix bits and pieces on other platforms:</p>
 		<p>Starting Coda  requires a few steps.see <a href="building_coda.html">this document</a> for the details.</p>
 		<ol>
 			<li>Fetching, building and  installing ncurses and readline GNU libraries
@@ -103,8 +96,16 @@ sys/darwin-7.3 or from the terminal type
 			<li>Build and load the kernel extension
 			<li>Start Coda venus
 			<li>Test
+			
+			
 			<li>Report back things that does not work
+		
+		
 		</ol>
+		<p>A much simpler approach, however, is to load the ready-made coda package for MacOS X found at <a href="http://www.konvalo.org/?pagename=Main.Software">www.konvalo.org</a>. Running the script loads the userland coda and installs the necessary parts on a nonintrusive place on your disk.</p>
+		<p><span id="bodytitle">Handling system updates</span></p>
+		<p>At times, Apple updates MacOS, this usually also updates Darwin. You will have to edit the <tt>Info.plist</tt> and bump the <tt>com.apple.kernel</tt> value.</p>
+
 		<p><span id="bodytitle">Developers</span></p>
 		<p>For the moment, which I hope won't last for too long, I'm alone in this project. If you wish to help, drop me a mail</p>
 		<ul type="none">
