@@ -1124,7 +1124,6 @@ coda_inactive(v)
 
     ENTRY;
     ASSURE_LOCKED(vp);
-    myprintf(("coda_inactive vp=%p=%s\n",vp,coda_vp_name(vp)));
     /* We don't need to send inactive to venus - DCS */
     MARK_ENTRY(CODA_INACTIVE_STATS);
 
@@ -1191,6 +1190,12 @@ coda_inactive(v)
 /* 
  * It appears that in NetBSD, lookup is supposed to return the vnode locked
  */
+
+//#define LOCK_PARENT vget(dvp, LK_EXCLUSIVE,td)
+#define LOCK_LEAF vget(*vpp, LK_EXCLUSIVE,td)
+#define UNLOCK_PARENT VOP_UNLOCK(dvp, 0,td)
+#define UNLOCK_LEAF VOP_UNLOCK(*vpp, 0,td)
+
 int
 coda_lookup(v)
     void *v;
@@ -1228,7 +1233,8 @@ coda_lookup(v)
 				   nm, coda_f2s(&dcp->c_fid), cnp->cn_nameiop)););
 
     /* Check for lookup of control object. */
-    if (IS_CTL_NAME(dvp, nm, len)) {
+    if (IS_CTL_NAME(dvp, nm, len)) 
+    {
 	*vpp = coda_ctlvp;
 	vref(*vpp);
 	MARK_INT_SAT(CODA_LOOKUP_STATS);
@@ -1270,16 +1276,10 @@ coda_lookup(v)
     {
         
         myprintf(("Denying create in /coda entry %s from venus access\n", nm));
-        /*        if(coda_islockedbyme(dvp))
-    {
-            //    myprintf(("coda_create: Deliberately unlocking %p\n",dvp));
-            //   VOP_UNLOCK(dvp,0,td);
-    }
-        */
         *vpp = (struct vnode *)0;
         
         //ASSURE_LOCKED(dvp);
-        //        ASSURE_LOCKED(*vpp);
+        //ASSURE_LOCKED(*vpp);
         LEAVE;
         error = EACCES;
         goto exit;
@@ -1288,8 +1288,7 @@ coda_lookup(v)
     
     
     if(nm)
-        myprintf(("\n\nLooking up entry %s\n",nm));
-    
+        CODADEBUG(CODA_LOOKUP, myprintf(("\n\nLooking up entry %s\n",nm)););
     
     if (len+1 > CODA_MAXNAMLEN) 
     {
@@ -1304,7 +1303,8 @@ coda_lookup(v)
     /* First try to look the file up in the cfs name cache */
     /* lock the parent vnode? */
     cp = coda_nc_lookup(dcp, nm, len, cred);
-    if (cp) {
+    if (cp) 
+    {
 	*vpp = CTOV(cp);
 	vref(*vpp);
 	CODADEBUG(CODA_LOOKUP, myprintf(("lookup result %d vpp %p\n",error,*vpp)););
@@ -1315,46 +1315,35 @@ coda_lookup(v)
     /* The name wasn't cached, so we need to contact Venus */
     error = venus_lookup(vtomi(dvp), &dcp->c_fid, nm, len, cred, THREAD2PROC, &VFid, &vtype);
             
-        if(error)
-        {
-	    CODADEBUG(CODA_LOOKUP, myprintf(("lookup error on %s (%s)%d\n",
-					     coda_f2s(&dcp->c_fid), nm, error));)
-            if( error == ENOENT || ((cnp->cn_flags & LOCKLEAF) == 0) )
-            {
-                myprintf(("CODA_LOOKUP: SHOULD NOT BE LOCKED %p, %p, %p, %p\n",*vpp,*ap->a_vpp, dvp, CTOV(dcp)));
-                if(VOP_ISLOCKED(dvp)) 
-                {
-                    myprintf(("CODA_LOOKUP: UNLOCKING %p\n",dvp));
-                    VOP_UNLOCK(dvp, 0, td);
-                } 
-                else
-                {
-                    //myprintf(("CODA_LOOKUP: AND IS NOT %p\n",dvp));
-                }
-            }
-	    *vpp = (struct vnode *)0;
-	} else {
-	    MARK_INT_SAT(CODA_LOOKUP_STATS);
-	    CODADEBUG(CODA_LOOKUP, 
-		     myprintf(("lookup: %s type %o result %d\n",
-			       coda_f2s(&VFid), vtype, error)); )
-	    cp = make_coda_node(&VFid, dvp->v_mount, vtype);
-	    if(cp == 0) 
-	    {
-		LEAVE;
-		return ENOMEM;
-	    }
-
-	    SET_CNODE_NAME(nm);
-
-	    *vpp = CTOV(cp);
-	    
-	    /* enter the new vnode in the Name Cache only if the top bit isn't set */
-	    /* And don't enter a new vnode for an invalid one! */
-	    if (!(vtype & CODA_NOCACHE))
-		coda_nc_enter(VTOC(dvp), nm, len, cred, VTOC(*vpp));
-	}
+    if(error)
+    {
+        MARK_INT_FAIL(CODA_LOOKUP_STATS);
+        CODADEBUG(CODA_LOOKUP, myprintf(("lookup error on %s (%s)%d\n",
+                                         coda_f2s(&dcp->c_fid), nm, error)););
+        goto exit;
+    }
     
+    MARK_INT_SAT(CODA_LOOKUP_STATS);
+    CODADEBUG(CODA_LOOKUP, myprintf(("lookup: %s type %o result %d\n",
+                                     coda_f2s(&VFid), vtype, error)); );
+    cp = make_coda_node(&VFid, dvp->v_mount, vtype);
+    if(cp == 0) 
+    {
+        error=ENOMEM;
+        goto exit;
+    }
+    
+    SET_CNODE_NAME(nm);
+    
+    *vpp = CTOV(cp);
+    
+    /* enter the new vnode in the Name Cache only if the top bit isn't set */
+    /* And don't enter a new vnode for an invalid one! */
+    if (!(vtype & CODA_NOCACHE))
+        coda_nc_enter(VTOC(dvp), nm, len, cred, VTOC(*vpp));
+    
+    /* Fall through to exit: */
+
  exit:
     /* 
      * If we are creating, and this was the last name to be looked up,
@@ -1371,7 +1360,7 @@ coda_lookup(v)
     {
 	error = EJUSTRETURN;
 	cnp->cn_flags |= SAVENAME;
-	*ap->a_vpp = NULL;
+        *vpp = (struct vnode *)0;
     }
 
     /* 
@@ -1384,9 +1373,11 @@ coda_lookup(v)
      * fact find the name, otherwise coda_remove won't have a chance
      * to free the pathname.  
      */
-    if ((cnp->cn_nameiop == DELETE)
-	&& (cnp->cn_flags & ISLASTCN)
-	&& !error)
+    if ( 
+         (cnp->cn_nameiop == DELETE) &&
+	 (cnp->cn_flags & ISLASTCN) &&
+	 !error
+       )
     {
 	cnp->cn_flags |= SAVENAME;
     }
@@ -1400,51 +1391,63 @@ coda_lookup(v)
      * parent.)  Simple, huh?  We can never leave the parent locked unless
      * we are ISLASTCN
      */
-    if (!error || (error == EJUSTRETURN)) {
-	if (!(cnp->cn_flags & LOCKPARENT) || !(cnp->cn_flags & ISLASTCN)) {
-            
-            if (coda_lockdebug) {
-                myprintf(("Will attempt unlock on %p from %s line %d\n",dvp,__func__,__LINE__));
+    if (!error || (error == EJUSTRETURN)) 
+    {
+	if (!(cnp->cn_flags & LOCKPARENT) || !(cnp->cn_flags & ISLASTCN)) 
+        {
+            if (coda_lockdebug) 
+            {
+                myprintf(("Will attempt unlock parent on %p from %s line %d\n",dvp,__func__,__LINE__));
             }
-	    if ((rv = VOP_UNLOCK(dvp, 0, td))) { /* Use rv to avoid clobbering the value of error, it is tested later too */
+	    if (rv = UNLOCK_PARENT) 
+            { 
         	LEAVE;
 		goto lockcheck;
 	    }	    
 	    /* 
 	     * The parent is unlocked.  As long as there is a child,
 	     * lock it without bothering to check anything else. 
-             *  AHEM! What a naive assumption!!! How do we now know there is a child ? CB 040506 23:57
 	     */
             if(!error && (cnp->cn_flags & LOCKLEAF)) /* I.e. in this case, the error isn't EJUSTRETURN a.k.a. ENOENT */
             {
-                if (*ap->a_vpp) {
+                if (*vpp) 
+                {
                     myprintf(("CODA_LOOKUP: LOCKING LEAF, error=%d\n",error));
-                    if (coda_lockdebug) {
-                        myprintf(("Will attempt lock on %p from %s line %d\n",*ap->a_vpp,__func__,__LINE__));
+                    if (coda_lockdebug) 
+                    {
+                        myprintf(("Will attempt lock on %p from %s line %d\n", *vpp  ,__func__, __LINE__));
                     }
-                    if ((error = VOP_LOCK(*ap->a_vpp, LK_EXCLUSIVE, td))) {
+                    if (error = LOCK_LEAF)
+                    {
                         printf("coda_lookup: ");
                         panic("unlocked parent but couldn't lock child");
                     }
                 }
-            } else {
+            } 
+            else 
+            {
                 myprintf(("CODA_LOOKUP: AVOIDED LOCKING LEAF, error=%d\n",error));
             }
-	} else {
-	    /* The parent is locked, and may be the same as the child */
-	    if (*ap->a_vpp && (*ap->a_vpp != dvp)) {
-		/* Different, go ahead and lock it. */
-                if (coda_lockdebug) {
-                    myprintf(("May attempt lock leaf on %p from %s line %d\n",*ap->a_vpp,__func__,__LINE__));
-                }
-                if(error != ENOENT && (cnp->cn_flags & LOCKLEAF)) /* Only lock the leaf if it exists and locking is asked for */
+	} 
+        else 
+        {
+	    /* The parent is locked, and it may be the same as the child */
+	    if ( *vpp && 
+                (*vpp != dvp) && 
+                (error != ENOENT) && 
+                (cnp->cn_flags & LOCKLEAF)
+               ) 
+            {
+		/* Different, go ahead and lock the leaf. */
+                if (coda_lockdebug) 
                 {
-                    myprintf(("CODA_LOOKUP: LOCKING LEAF ANYWAY, error=%d\n",error));
-                    if ((error = VOP_LOCK(*ap->a_vpp, LK_EXCLUSIVE, td))) {
-                        printf("coda_lookup: ");
-                        panic("unlocked parent but couldn't lock child");
-                    }
+                    myprintf(("Locking leaf on %p from %s line %d\n", *vpp, __func__, __LINE__));
                 }
+                if ((error = LOCK_LEAF)) 
+                {
+		    printf("coda_lookup: ");
+		    panic("unlocked parent but couldn't lock child");
+		}
 	    }
 	}
     } 
@@ -1454,7 +1457,7 @@ coda_lookup(v)
         *vpp = NULL;
     }
 lockcheck:
-        myprintf(("Lookup lock check 2: vp=%p, dvp=%p, error=%d, cn_flags=%p\n",*vpp,dvp,cnp->cn_flags));
+    myprintf(("Lookup lock check 2: vp=%p, dvp=%p, error=%d, cn_flags=%p\n",*vpp,dvp,cnp->cn_flags));
     if(error && (error != EJUSTRETURN))
     {
         ASSURE_LOCKED(dvp);
@@ -1469,11 +1472,9 @@ lockcheck:
             ASSURE_UNLOCKED(dvp);
     }
     if(*vpp && *vpp != dvp)
-    {
         ASSURE_LOCKED(*vpp);
        
-        *ap->a_vpp = NULL;
-    }
+    myprintf(("coda_lookup: returning error=%d, vp=%p\n",error,*vpp));
     LEAVE;
     return(error);
 }
@@ -1517,7 +1518,27 @@ coda_create(v)
         ASSURE_LOCKED(*vpp);
 	LEAVE; 
 	return(EACCES);
+    } 
+#define DENY_ROOT_CREATES
+#ifdef DENY_ROOT_CREATES
+    if ( dvp->v_vflag & VV_ROOT ) 
+    {
+        
+        myprintf(("Denying create in /coda entry %s from venus access\n", nm));
+/*        if(coda_islockedbyme(dvp))
+        {
+        //    myprintf(("coda_create: Deliberately unlocking %p\n",dvp));
+         //   VOP_UNLOCK(dvp,0,td);
+        }
+*/
+        *vpp = (struct vnode *)0;
+
+        ASSURE_LOCKED(dvp);
+//        ASSURE_LOCKED(*vpp);
+        LEAVE;
+        return EACCES;
     }
+#endif
 
     error = venus_create(vtomi(dvp), &dcp->c_fid, nm, len, exclusive, mode, va, cred, THREAD2PROC, &VFid, &attr);
 
@@ -1571,9 +1592,9 @@ coda_create(v)
             if (coda_lockdebug) {
                 myprintf(("Will attempt lock on %p from %s line %d\n",*ap->a_vpp,__func__,__LINE__));
             }
-	    if ((error = VOP_LOCK(*ap->a_vpp, LK_EXCLUSIVE, td))) {
+	    if ((error = vn_lock(*ap->a_vpp, LK_EXCLUSIVE, td))) {
 		printf("coda_create: ");
-		panic("unlocked parent but couldn't lock child");
+		panic(" couldn't lock child");
 	    }
 	}
 #ifdef OLD_DIAGNOSTIC
