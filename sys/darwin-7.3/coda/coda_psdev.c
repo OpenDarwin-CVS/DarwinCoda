@@ -87,6 +87,7 @@ extern int coda_nc_initialized;    /* Set if cache has been initialized */
 #endif
 
 int coda_psdev_print_entry = 0;
+int coda_psdev_print_leave = 0;
 static
 int outstanding_upcalls = 0;
 int coda_call_sleep = PZERO - 1;
@@ -95,7 +96,8 @@ int coda_pcatch = PCATCH;
 #else
 #endif
 
-#define ENTRY if(coda_psdev_print_entry) myprintf(("Entered %s\n",__func__))
+#define ENTRY if(coda_psdev_print_entry) PRINTENTRY
+#define LEAVE if(coda_psdev_print_entry) PRINTLEAVE
 
 void vcodaattach(int n);
 
@@ -129,14 +131,18 @@ vc_nb_open(dev, flag, mode, td)
     THREAD *td;             /* NetBSD only */
 {
     register struct vcomm *vcp;
+    int rv;
     
     ENTRY;
 
     if (minor(dev) >= NVCODA || minor(dev) < 0)
-	return(ENXIO);
-    
+           return(ENXIO);
     if (!coda_nc_initialized)
-	coda_nc_init();
+    {
+	rv=coda_nc_init();
+        if(rv) return rv;
+    }
+    
     
     vcp = &coda_mnttbl[minor(dev)].mi_vcomm;
     if (VC_OPEN(vcp))
@@ -543,6 +549,7 @@ coda_call(mntinfo, inSize, outSize, buffer)
 	    return(ENODEV);
 
 	CODA_ALLOC(vmp,struct vmsg *,sizeof(struct vmsg));
+        if(vmp==0) return ENOMEM;
 	/* Format the request message. */
 	vmp->vm_data = buffer;
 	vmp->vm_flags = 0;
@@ -682,8 +689,11 @@ coda_call(mntinfo, inSize, outSize, buffer)
 		error = EINTR;
 		
 		CODA_ALLOC(svmp, struct vmsg *, sizeof (struct vmsg));
+                if(svmp==0) return ENOMEM;
 
 		CODA_ALLOC((svmp->vm_data), char *, sizeof (struct coda_in_hdr));
+                if(svmp->vm_data == 0) return ENOMEM;
+                
 		dog = (struct coda_in_hdr *)svmp->vm_data;
 		
 		svmp->vm_flags = 0;
