@@ -262,8 +262,8 @@ coda_assure_lock(struct vnode *vp, int locktype, int line, const char *func)
     cp=VTOC(vp);
     if(cp)
     {
-        cp->c_name[31]='\0'; // just in case
-        myprintf(("LOCK CHECK: vp=%p, name=%s, locktype=%p\n",vp,cp->c_name,locktype));
+//        cp->c_name[31]='\0'; // just in case
+//        myprintf(("LOCK CHECK: vp=%p, name=%s, locktype=%p\n",vp,cp->c_name,locktype));
     }
     else
     {
