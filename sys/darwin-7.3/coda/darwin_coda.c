@@ -26,6 +26,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <coda/coda.h>
+#include <coda/cnode.h>
 #include <coda/coda_psdev.h>
 
 int vrefcnt(struct vnode *vp)
@@ -73,7 +75,7 @@ void assert_vop_locked(struct vnode *vp, char *f, int l)
 {
     if(coda_debug_locks && vp && (vp->v_type != VCHR) && (vp->v_type != VBAD) && (VOP_ISLOCKED(vp) == 0))
     {
-        printf("Vnode at %p is not locked, though it should: %s(%d)\n",(void *)vp, f, l);
+        myprintf(("Vnode at %p is not locked, though it should: %s(%d)\n",(void *)vp, f, l));
     }
 }
 
@@ -81,7 +83,7 @@ void assert_vop_unlocked(struct vnode *vp, char *f, int l)
 {
     if(coda_debug_locks && vp && (vp->v_type != VCHR) && (vp->v_type != VBAD) && VOP_ISLOCKED(vp))
     {
-        printf("Vnode at %p is locked, though it should not: %s(%d)\n",(void *)vp, f, l);
+        myprintf(("Vnode at %p is locked, though it should not: %s(%d)\n",(void *)vp, f, l));
     }
 }
 #endif
@@ -151,7 +153,7 @@ kern_return_t darwin_coda_start (kmod_info_t * ki, void * d)
         if(ved_p->opve_op->vdesc_offset == 0 && 
            ved_p->opve_op->vdesc_offset != VOFFSET ( vop_default ) )
         {
-            printf("coda_kextload: operation %s not listed in vfs_op_descs.\n", ved_p->opve_op->vdesc_name);
+            myprintf(("coda_kextload: operation %s not listed in vfs_op_descs.\n", ved_p->opve_op->vdesc_name));
             thread_funnel_set(kernel_flock, old_funnel_status);
             return KERN_FAILURE;
         }
@@ -164,7 +166,7 @@ kern_return_t darwin_coda_start (kmod_info_t * ki, void * d)
     /* Check that we have a default routine */
     if(coda_vnodeop_entries[VOFFSET(vop_default)] == NULL)
     {
-        printf("coda_kextload: A vnode entry has no default routine.");
+        myprintf(("coda_kextload: A vnode entry has no default routine."));
         thread_funnel_set(kernel_flock, old_funnel_status);
         return KERN_FAILURE;
     }
@@ -175,14 +177,14 @@ kern_return_t darwin_coda_start (kmod_info_t * ki, void * d)
         {
             coda_vnodeop_entries[i]=coda_vnodeop_entries[VOFFSET(vop_default)];
 	}
-        //  printf("coda_vnodeop_entries[%d]=%X\n",i,coda_vnodeop_entries[i]);
+        //  myprintf(("coda_vnodeop_entries[%d]=%X\n",i,coda_vnodeop_entries[i]));
     }
     
     // Ok, vnode vectors are set up, vfs vectors are set up, add it in
     rv=vfsconf_add(coda_vfsconf);
     if(rv)
     {
-        printf("coda_kextload: vfsconf_add failed. Return value=%d\n",rv);
+        myprintf(("coda_kextload: vfsconf_add failed. Return value=%d\n",rv));
         thread_funnel_set(kernel_flock, old_funnel_status);
         return KERN_FAILURE;
     }
@@ -197,7 +199,7 @@ kern_return_t darwin_coda_start (kmod_info_t * ki, void * d)
     
     if(rv < 0)
     {
-        printf("coda_kextload: control device init failed\n");
+        myprintf(("coda_kextload: control device init failed\n"));
         return KERN_FAILURE;
     }
     
@@ -205,7 +207,7 @@ kern_return_t darwin_coda_start (kmod_info_t * ki, void * d)
     
     coda_debugon();
     
-    printf("Coda kernel extension loaded\n"); 
+    myprintf(("Coda kernel extension loaded\n")); 
     thread_funnel_set(kernel_flock, old_funnel_status);
     return KERN_SUCCESS;
 }
@@ -216,7 +218,7 @@ kern_return_t darwin_coda_stop (kmod_info_t * ki, void * d)
     int rv=0;
     
     old_funnel_status = thread_funnel_set(kernel_flock, TRUE);
-    printf(("coda_kextunload: Unloading coda kernel extension"));
+    myprintf(("coda_kextunload: Unloading coda kernel extension"));
     simple_lock_init(&coda_instances_lock);
     if(coda_instances > 0)
     {
@@ -228,7 +230,7 @@ kern_return_t darwin_coda_stop (kmod_info_t * ki, void * d)
     rv=vfsconf_del("coda");
     if (rv)
     {
-        printf ("coda_kextload: vfsconf_delfailed. Return value=%d\n",rv);
+        myprintf(("coda_kextload: vfsconf_delfailed. Return value=%d\n",rv));
         thread_funnel_set(kernel_flock, old_funnel_status);
         return KERN_FAILURE;
     }
@@ -237,7 +239,7 @@ kern_return_t darwin_coda_stop (kmod_info_t * ki, void * d)
     
     coda_cdevsw_uninit();
     
-    printf(("coda_kextunload: coda kernel extension unloaded"));
+    myprintf(("coda_kextunload: coda kernel extension unloaded"));
     thread_funnel_set(kernel_flock, old_funnel_status);
     return KERN_SUCCESS;
 }
@@ -263,7 +265,7 @@ coda_cdevsw_init()
         maj = cdevsw_add(-1, &coda_cdevsw);
         if (maj == -1) 
         {
-            printf("coda_cdevsw_init: failed to allocate a major number!\n");
+            myprintf(("coda_cdevsw_init: failed to allocate a major number!\n"));
             return -1;
         }
         devfs_make_node(makedev(maj, 0), DEVFS_CHAR, UID_ROOT, GID_WHEEL, 0600, "cfs0", 0);
@@ -280,7 +282,7 @@ coda_cdevsw_uninit()
     if(coda_vc_major < 0)
         return;
     rv=cdevsw_remove(coda_vc_major, &coda_cdevsw);
-    printf("coda_cdevsw_uninit: cdevsw_remove(%d,%X) returned %d\n", coda_vc_major, &coda_cdevsw, rv);
+    myprintf(("coda_cdevsw_uninit: cdevsw_remove(%d,%X) returned %d\n", coda_vc_major, &coda_cdevsw, rv));
     if(rv == coda_vc_major)
         coda_vc_major=-1;
 }
