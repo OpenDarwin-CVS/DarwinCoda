@@ -72,6 +72,8 @@ int coda_vfsop_print_entry = 0;
 
 struct vnode *coda_ctlvp;
 struct coda_mntinfo coda_mnttbl[NVCODA]; /* indexed by minor device number */
+int coda_islockedbyme(struct vnode *vp, int locktype);
+
 
 /* structure to keep statistics of internally generated/satisfied calls */
 
@@ -110,10 +112,11 @@ static int coda_mount_type;
 int
 coda_init(struct vfsconf * vfsp)
 {
+    int error=0;
     ENTRY;
     coda_mount_type = vfsp->vfc_typenum; 
     LEAVE;
-    return 0;
+    return error;
 }
 
 /*
@@ -377,15 +380,12 @@ coda_root(vfsp, vpp)
 	    { /* Found valid root. */
 		*vpp = mi->mi_rootvp;
 		/* On Mach, this is vref.  On NetBSD, VOP_LOCK */
-                if(VOP_ISLOCKED(*vpp))
+                if(coda_islockedbyme(*vpp,0))
                 {
                     myprintf(("Avoiding locking the root against myself on line %d\n",__LINE__));
-                    vref(*vpp);
+                    VOP_UNLOCK(*vpp,0,td);
                 }
-                else
-		{ 
-		    vget(*vpp, LK_EXCLUSIVE, td); 
-		}
+	        vget(*vpp, LK_EXCLUSIVE, td); 
 		MARK_INT_SAT(CODA_ROOT_STATS);
                 ASSURE_LOCKED(*vpp);
                 LEAVE;
@@ -405,19 +405,7 @@ coda_root(vfsp, vpp)
 	coda_save(VTOC(mi->mi_rootvp));
 
 	*vpp = mi->mi_rootvp;
-#ifndef USE_VGET
-        if(VOP_ISLOCKED(*vpp))
-        {
-            myprintf(("Avoiding locking the root against myself on line %d\n",__LINE__));
-        }
-        else
-        {
-            vref(*vpp);
-            vn_lock(*vpp, LK_EXCLUSIVE, td);
-        }
-#else
 	vget(*vpp, LK_EXCLUSIVE, td);
-#endif
 
 	MARK_INT_SAT(CODA_ROOT_STATS);
 	goto exit;
@@ -432,19 +420,7 @@ coda_root(vfsp, vpp)
 	 * will fail.
 	 */
 	*vpp = mi->mi_rootvp;
-#ifndef USE_VGET
-        if(VOP_ISLOCKED(*vpp))
-        {
-            myprintf(("Avoiding locking the root against myself on line %d\n",__LINE__));
-        }
-        else
-        {
-            vref(*vpp);
-            vn_lock(*vpp, LK_EXCLUSIVE, td);
-        }
-#else
 	vget(*vpp, LK_EXCLUSIVE, td);
-#endif
 
 	MARK_INT_FAIL(CODA_ROOT_STATS);
 	error = 0;
@@ -468,11 +444,12 @@ coda_start(mp, flags, td)
 	int flags;
 	THREAD *td;
 {
+	int error=0;
         ENTRY;  
 	/* XXX See coda_root(). */
 	vftomi(mp)->mi_started = 1;
         LEAVE;
-	return (0);
+	return (error);
 }
 
 /*
@@ -484,6 +461,8 @@ coda_nb_statfs(vfsp, sbp, td)
     struct statfs *sbp;
     THREAD *td;
 {
+    int error=0;
+
     ENTRY;
 /*  MARK_ENTRY(CODA_STATFS_STATS); */
     if (!CODA_MOUNTED(vfsp)) {
