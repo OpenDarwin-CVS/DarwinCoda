@@ -180,11 +180,9 @@ struct vnodeopv_entry_desc coda_vnodeop_entries[] = {
     { &vop_createvobject_desc,	(vop_t *) vop_stdcreatevobject },
     { &vop_destroyvobject_desc,	(vop_t *) vop_stddestroyvobject },
     { &vop_getvobject_desc,     (vop_t *) vop_stdgetvobject },	
-    { &vop_getwritemount_desc,	(vop_t *) vop_stdgetwritemount },
-    { (struct vnodeop_desc*)NULL, (int(*)(void *))NULL }
-#else /* DARWIN */
-    { ( struct vnodeop_desc*) NULL, (int(*)(void *))NULL }
+    { &vop_getwritemount_desc,	(vop_t *) vop_stdgetwritemount },   
 #endif /* DARWIN */
+     { (struct vnodeop_desc*) NULL, (int(*)(void *))NULL }
 };
 
 #ifndef DARWIN
@@ -874,12 +872,15 @@ coda_readlink(v)
     int error;
     char *str;
     int len;
+    
+    ENTRY;
 
     MARK_ENTRY(CODA_READLINK_STATS);
 
     /* Check for readlink of control object. */
     if (IS_CTL_VP(vp)) {
 	MARK_INT_FAIL(CODA_READLINK_STATS);
+        LEAVE;
 	return(ENOENT);
     }
 
@@ -890,6 +891,7 @@ coda_readlink(v)
 	    MARK_INT_FAIL(CODA_READLINK_STATS);
 	else
 	    MARK_INT_SAT(CODA_READLINK_STATS);
+        LEAVE;
 	return(error);
     }
 
@@ -909,6 +911,7 @@ coda_readlink(v)
     }
 
     CODADEBUG(CODA_READLINK, myprintf(("in readlink result %d\n",error));)
+    LEAVE;
     return(error);
 }
 
@@ -926,6 +929,8 @@ coda_fsync(v)
     struct vnode *convp = cp->c_ovp;
     int error;
    
+    ENTRY;
+    
     MARK_ENTRY(CODA_FSYNC_STATS);
 
     /* Check for fsync on an unmounting object */
@@ -934,12 +939,14 @@ coda_fsync(v)
      * which we have to avoid.  Not a legitimate failure for stats.
      */
     if (IS_UNMOUNTING(cp)) {
+        LEAVE;
 	return(ENODEV);
     }
 
     /* Check for fsync of control object. */
     if (IS_CTL_VP(vp)) {
 	MARK_INT_SAT(CODA_FSYNC_STATS);
+        LEAVE;
 	return(0);
     }
 
@@ -960,17 +967,19 @@ coda_fsync(v)
     */
 
     /*
-     * We can expect fsync on any vnode at all if venus is pruging it.
+     * We can expect fsync on any vnode at all if venus is purging it.
      * Venus can't very well answer the fsync request, now can it?
      * Hopefully, it won't have to, because hopefully, venus preserves
      * the (possibly untrue) invariant that it never purges an open
      * vnode.  Hopefully.
      */
     if (cp->c_flags & C_PURGING) {
+        LEAVE;
 	return(0);
     }
 
     /* needs research */
+    LEAVE;
     return 0;
     error = venus_fsync(vtomi(vp), &cp->c_fid, cred, THREAD2PROC);
 
@@ -993,6 +1002,7 @@ coda_inactive(v)
 /* upcall decl */
 /* locals */
 
+    ENTRY;
     /* We don't need to send inactive to venus - DCS */
     MARK_ENTRY(CODA_INACTIVE_STATS);
 
@@ -1046,6 +1056,7 @@ coda_inactive(v)
     }
 
     MARK_INT_SAT(CODA_INACTIVE_STATS);
+    LEAVE;
     return(0);
 }
 
@@ -1240,8 +1251,8 @@ coda_lookup(v)
 	    if (*ap->a_vpp && (*ap->a_vpp != dvp)) {
 		/* Different, go ahead and lock it. */
                 if (coda_lockdebug) {
-                    myprintf(("Will attempt lock on %p from %s line %d\n",*ap->a_vpp,__func__,__LINE__));
-            }
+                    myprintf(("May attempt lock leaf on %p from %s line %d\n",*ap->a_vpp,__func__,__LINE__));
+                }
                 if(error != ENOENT && (cnp->cn_flags & LOCKLEAF)) /* Only lock the leaf if it exists and locking is asked for */
                 {
                     myprintf(("CODA_LOOKUP: LOCKING LEAF ANYWAY, error=%d\n",error));
@@ -1372,53 +1383,78 @@ coda_remove(v)
 /* true args */
     struct vop_remove_args *ap = v;
     struct vnode *dvp = ap->a_dvp;
+    struct vnode *vp = ap->a_vp;
     struct cnode *cp = VTOC(dvp);
     struct componentname  *cnp = ap->a_cnp;
     struct ucred *cred = cnp->cn_cred;
     THREAD *td = cnp->cn_thread;
-/* locals */
+    /* locals */
     int error;
     const char *nm = cnp->cn_nameptr;
     int len = cnp->cn_namelen;
     struct cnode *tp;
-
+    
+    ENTRY;
+    
     MARK_ENTRY(CODA_REMOVE_STATS);
-
+    
     CODADEBUG(CODA_REMOVE, myprintf(("remove: %s in %s\n",
 				     nm, coda_f2s(&cp->c_fid))););
     /* Remove the file's entry from the CODA Name Cache */
     /* We're being conservative here, it might be that this person
-     * doesn't really have sufficient access to delete the file
-     * but we feel zapping the entry won't really hurt anyone -- dcs
-     */
+        * doesn't really have sufficient access to delete the file
+        * but we feel zapping the entry won't really hurt anyone -- dcs
+        */
     /* I'm gonna go out on a limb here. If a file and a hardlink to it
-     * exist, and one is removed, the link count on the other will be
-     * off by 1. We could either invalidate the attrs if cached, or
-     * fix them. I'll try to fix them. DCS 11/8/94
-     */
+        * exist, and one is removed, the link count on the other will be
+        * off by 1. We could either invalidate the attrs if cached, or
+        * fix them. I'll try to fix them. DCS 11/8/94
+        */
     tp = coda_nc_lookup(VTOC(dvp), nm, len, cred);
-    if (tp) {
-	if (VALID_VATTR(tp)) {	/* If attrs are cached */
-	    if (tp->c_vattr.va_nlink > 1) {	/* If it's a hard link */
+    if (tp) 
+    {
+	if (VALID_VATTR(tp)) 
+        {	/* If attrs are cached */
+	    if (tp->c_vattr.va_nlink > 1) 
+            {	/* If it's a hard link */
 		tp->c_vattr.va_nlink--;
 	    }
 	}
-	
-	coda_nc_zapfile(VTOC(dvp), nm, len); 
-	/* No need to flush it if it doesn't exist! */
+
+    coda_nc_zapfile(VTOC(dvp), nm, len); 
+/* No need to flush it if it doesn't exist! */
     }
-    /* Invalidate the parent's attr cache, the modification time has changed */
+/* Invalidate the parent's attr cache, the modification time has changed */
     VTOC(dvp)->c_flags &= ~C_VATTR;
 
-    /* Check for remove of control object. */
+/* Check for remove of control object. */
     if (IS_CTL_NAME(dvp, nm, len)) {
-	MARK_INT_FAIL(CODA_REMOVE_STATS);
-	return(ENOENT);
+        MARK_INT_FAIL(CODA_REMOVE_STATS);
+        LEAVE;
+        return(ENOENT);
     }
 
     error = venus_remove(vtomi(dvp), &cp->c_fid, nm, len, cred, THREAD2PROC);
 
+    if(!error && VOP_ISLOCKED(dvp))
+    {
+        if (coda_lockdebug) {
+            myprintf(("coda_remove: Unlocking locked parent\n"));
+        }
+        VOP_UNLOCK(dvp, 0, td);
+    }
+    if(!error && VOP_ISLOCKED(vp))
+    {
+        if (coda_lockdebug) {
+            myprintf(("coda-remove: Unlocking removed leaf\n"));
+        }
+        VOP_UNLOCK(vp, 0, td);
+    }
+
+
     CODADEBUG(CODA_REMOVE, myprintf(("in remove result %d\n",error)); )
+
+    LEAVE;
 
     return(error);
 }
@@ -1647,6 +1683,7 @@ coda_rmdir(v)
 /* true args */
     struct vop_rmdir_args *ap = v;
     struct vnode *dvp = ap->a_dvp;
+    struct vnode *vp = ap->a_vp;
     struct cnode *dcp = VTOC(dvp);
     struct componentname  *cnp = ap->a_cnp;
     struct ucred *cred = cnp->cn_cred;
@@ -1657,11 +1694,14 @@ coda_rmdir(v)
     int len = cnp->cn_namelen;
     struct cnode *cp;
    
+    ENTRY;
+    
     MARK_ENTRY(CODA_RMDIR_STATS);
 
     /* Check for rmdir of control object. */
     if (IS_CTL_NAME(dvp, nm, len)) {
 	MARK_INT_FAIL(CODA_RMDIR_STATS);
+        LEAVE;
 	return(ENOENT);
     }
 
@@ -1683,9 +1723,25 @@ coda_rmdir(v)
     dcp->c_flags &= ~C_VATTR;
 
     error = venus_rmdir(vtomi(dvp), &dcp->c_fid, nm, len, cred, THREAD2PROC);
-
+    
+    if(!error && VOP_ISLOCKED(dvp))
+    {
+        if (coda_lockdebug) {
+            myprintf(("coda_rmdir: Unlocking locked parent\n"));
+        }
+        VOP_UNLOCK(dvp, 0, td);
+    }
+    if(!error && VOP_ISLOCKED(vp))
+    {
+        if (coda_lockdebug) {
+            myprintf(("coda_rmdir: Unlocking removed leaf\n"));
+        }
+        VOP_UNLOCK(vp, 0, td);
+    }
+    
     CODADEBUG(CODA_RMDIR, myprintf(("in rmdir result %d\n", error)); )
 
+    LEAVE;
     return(error);
 }
 
@@ -1956,7 +2012,7 @@ coda_lock(v)
 
     if (coda_lockdebug) 
     {
-	myprintf(("Attempting lock on %s vp=%p, cp=%p\n", coda_f2s(&cp->c_fid), vp, cp));
+	myprintf(("Attempting lock %p at %p on %s vp=%p, cp=%p\n", ap->a_flags, &vp->v_interlock, coda_f2s(&cp->c_fid), vp, cp));
     }
 
 #ifndef	DEBUG_LOCKS
@@ -1983,9 +2039,9 @@ void *v;
     int rv;
     
     ENTRY;
-    if (coda_lockdebug) {
-	myprintf(("Attempting unlock on %s\n",
-		  coda_f2s(&cp->c_fid)));
+    if (coda_lockdebug) 
+    {
+	myprintf(("Attempting unlock %p at %p on %s vp=%p, cp=%p\n", ap->a_flags, &vp->v_interlock, coda_f2s(&cp->c_fid), vp, cp));
     }
 #ifndef	DEBUG_LOCKS
     rv=lockmgr(&cp->c_lock, ap->a_flags| LK_RELEASE, &vp->v_interlock, td);
@@ -2022,9 +2078,12 @@ coda_grab_vnode(dev_t dev, ino_t ino, struct vnode **vpp)
     int           error;
     struct mount *mp;
 
+    ENTRY;
+    
     if (!(mp = devtomp(dev))) {
 	myprintf(("coda_grab_vnode: devtomp(%#lx) returns NULL\n",
 		  (u_long)dev2udev(dev)));
+        LEAVE;
 	return(ENXIO);
     }
 
@@ -2037,8 +2096,10 @@ coda_grab_vnode(dev_t dev, ino_t ino, struct vnode **vpp)
     if (error) {
 	myprintf(("coda_grab_vnode: iget/vget(%lx, %lu) returns %p, err %d\n", 
 		  (u_long)dev2udev(dev), (u_long)ino, (void *)*vpp, error));
+        LEAVE;
 	return(ENOENT);
     }
+    LEAVE;
     return(0);
 }
 
