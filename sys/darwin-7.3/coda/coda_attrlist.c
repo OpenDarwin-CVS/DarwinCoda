@@ -36,5 +36,5 @@
 int
 coda_getattrlist(void *v)
 {
-    return EINVAL;
+    return EOPNOTSUPP;
 }
