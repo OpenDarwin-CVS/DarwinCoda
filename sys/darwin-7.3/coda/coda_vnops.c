@@ -346,7 +346,7 @@ coda_open(v)
     ino_t inode;
 
     ENTRY;
-    
+    ASSURE_LOCKED(vp);
     MARK_ENTRY(CODA_OPEN_STATS);
 
     /* Check for open of control file. */
@@ -355,9 +355,11 @@ coda_open(v)
 	/* if (WRITEABLE(flag)) */ 
 	if (flag & (FWRITE | O_TRUNC | O_CREAT | O_EXCL)) {
 	    MARK_INT_FAIL(CODA_OPEN_STATS);
+            ASSURE_LOCKED(vp);
 	    return(EACCES);
 	}
 	MARK_INT_SAT(CODA_OPEN_STATS);
+        ASSURE_LOCKED(vp);
 	LEAVE;
 	return(0);
     }
@@ -365,6 +367,7 @@ coda_open(v)
     error = venus_open(vtomi((*vpp)), &cp->c_fid, flag, cred, THREAD2PROC, &dev, &inode);
     if (error)
     {
+        ASSURE_LOCKED(vp);
 	LEAVE;
 	return (error);
     }
@@ -379,6 +382,7 @@ coda_open(v)
     error = coda_grab_vnode(dev, inode, &vp);
     if (error)
     {
+        ASSURE_LOCKED(vp);
 	LEAVE;
 	return (error);
     }
@@ -420,6 +424,7 @@ coda_open(v)
 #endif /* !DARWIN */
     if (error) {
     	printf("coda_open: VOP_OPEN on container failed %d\n", error);
+        ASSURE_LOCKED(vp);
 	LEAVE;
 	return (error);
     }
@@ -431,7 +436,8 @@ coda_open(v)
 	    vput(vp);
 	}
     }
-    LEAVE;  
+    LEAVE;
+    ASSURE_LOCKED(vp);
     return(error);
 }
 
@@ -559,6 +565,8 @@ coda_rdwr(vp, uiop, rw, ioflag, cred, td)
     int error = 0;
     int iscore = 0;
 
+    
+    ASSURE_LOCKED(vp);
     ENTRY;
     
     MARK_ENTRY(CODA_RDWR_STATS);
@@ -569,7 +577,8 @@ coda_rdwr(vp, uiop, rw, ioflag, cred, td)
 	
     /* Check for rdwr of control object. */
     if (IS_CTL_VP(vp)) {
-	MARK_INT_FAIL(CODA_RDWR_STATS);
+	MARK_INT_FAIL(CODA_RDWR_STATS);    
+        ASSURE_LOCKED(vp);
 	LEAVE;
 	return(EINVAL);
     }
@@ -624,7 +633,8 @@ coda_rdwr(vp, uiop, rw, ioflag, cred, td)
 #endif /* !DARWIN */
             myprintf(("coda_rdwr: Internally Opening %p\n", vp));
 	    if (error) {
-		myprintf(("coda_rdwr: VOP_OPEN on container failed %d\n", error));
+		myprintf(("coda_rdwr: VOP_OPEN on container failed %d\n", error));    
+                ASSURE_LOCKED(vp);
         	LEAVE;
 		return (error);
 	    }
@@ -636,7 +646,8 @@ coda_rdwr(vp, uiop, rw, ioflag, cred, td)
 		}
 	    }
 	    if (error) {
-		MARK_INT_FAIL(CODA_RDWR_STATS);
+		MARK_INT_FAIL(CODA_RDWR_STATS);    
+                ASSURE_LOCKED(vp);
         	LEAVE;
 		return(error);
 	    }
@@ -674,7 +685,8 @@ coda_rdwr(vp, uiop, rw, ioflag, cred, td)
 
     /* Invalidate cached attributes if writing. */
     if (rw == UIO_WRITE)
-	cp->c_flags &= ~C_VATTR;
+	cp->c_flags &= ~C_VATTR;    
+    ASSURE_LOCKED(vp);
     LEAVE;
     return(error);
 }
@@ -1488,7 +1500,7 @@ coda_create(v)
     struct vattr attr;
 
     ENTRY;
-    
+    ASSURE_LOCKED(dvp);
     MARK_ENTRY(CODA_CREATE_STATS);
 
     /* All creates are exclusive XXX */
