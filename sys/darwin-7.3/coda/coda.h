@@ -312,8 +312,9 @@ struct coda_statfs {
 #endif /* !DARWIN */
 #define VC_MAXMSGSIZE      sizeof(union inputArgs)+sizeof(union outputArgs) +\
                             VC_MAXDATASIZE  
-#define PRINTENTRY myprintf(("Entered %s, pid=%d\n",__func__,current_proc()->p_pid))
+#define PRINTENTRY myprintf(("\nEntered %s, pid=%d, thread=%p\n",__func__,current_proc()->p_pid, current_act()))
 #define PRINTLEAVE myprintf(("Leaving %s, pid=%d, line=%d\n",__func__,current_proc()->p_pid,__LINE__))
+#define PRINTERRLEAVE(x) myprintf(("Leaving %s with error=%d , pid=%d, line=%d\n",__func__,x,current_proc()->p_pid,__LINE__))
 
 #define CIOC_KERNEL_VERSION _IOWR('c', 10, sizeof (int))
 #if	0
