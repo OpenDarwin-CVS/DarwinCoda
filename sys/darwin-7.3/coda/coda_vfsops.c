@@ -82,6 +82,9 @@ struct coda_op_stats coda_vfsopstats[CODA_VFSOPS_SIZE];
 
 extern int coda_nc_initialized;     /* Set if cache has been initialized */
 extern int vc_nb_open(dev_t, int, int, THREAD *);
+#ifdef DARWIN
+extern dev_t hfsdev(struct mount *mp);
+#endif /* DARWIN */
 
 int
 coda_vfsopstats_init(void)
@@ -520,9 +523,11 @@ getNewVnode(vpp)
 		      NULL, NULL);
 }
 
+#ifndef  DARWIN
 #include <ufs/ufs/extattr.h>
 #include <ufs/ufs/quota.h>
 #include <ufs/ufs/ufsmount.h>
+#endif /* !DARWIN */
 /* get the mount structure corresponding to a given device.  Assume 
  * device corresponds to a UFS. Return NULL if no device is found.
  */ 
@@ -531,8 +536,14 @@ struct mount *devtomp(dev)
 {
     struct mount *mp;
    
+#ifdef DARWIN
+    CIRCLEQ_FOREACH(mp, &mountlist, mnt_list) {
+        if (hfsdev(mp) == dev ) {
+#else
     TAILQ_FOREACH(mp, &mountlist, mnt_list) {
 	if (((VFSTOUFS(mp))->um_dev == dev)) {
+#endif
+
 	    /* mount corresponds to UFS and the device matches one we want */
 	    return(mp); 
 	}
