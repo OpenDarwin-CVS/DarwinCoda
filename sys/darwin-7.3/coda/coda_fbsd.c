@@ -76,11 +76,6 @@ static struct cdevsw codadevsw = {
 	.d_read =	vc_nb_read,
 	.d_write =	vc_nb_write,
 	.d_ioctl =	vc_nb_ioctl,
-#ifndef DARWIN
-	.d_poll =	vc_nb_poll,
-	.d_name =	"Coda",
-	.d_maj =	VC_DEV_NO,
-#endif /* !DARWIN */
 };
 
 int     vcdebug = 1;
@@ -134,8 +129,11 @@ coda_fbsd_getpages(v)
 
     if (cfvp == NULL) {
 	opened_internally = 1;
-
+#ifdef DARWIN
+        error = VOP_OPEN(vp, FREAD, cred, p);
+#else /* !DARWIN */
 	error = VOP_OPEN(vp, FREAD,  cred, p, -1);
+#endif
 printf("coda_getp: Internally Opening %p\n", vp);
 
 	if (error) {
