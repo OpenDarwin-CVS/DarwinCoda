@@ -472,7 +472,33 @@ vc_nb_poll(dev, events, td)
     
     return(0);
 }
-#endif /* !DARWIN */
+
+#else /* DARWIN */
+
+int
+vc_nb_select(dev_t dev, int flag, void *wql, struct proc *p)
+{
+    register struct vcomm *vcp;
+    
+    ENTRY;
+    
+    if (minor(dev) >= NVCODA || minor(dev) < 0)
+        return(ENXIO);
+    
+    vcp = &coda_mnttbl[minor(dev)].mi_vcomm;
+    
+    if (flag != FREAD)
+        return(0);
+    
+    if (!EMPTY(vcp->vc_requests))
+        return(1);
+    
+    selrecord(p, &(vcp->vc_selproc), wql);
+    
+    return(0);
+}
+
+#endif /* DARWIN */
 
 /*
  * Statistics
