@@ -1,0 +1,28 @@
+This README file relates to the Darwin port of the FreeBSD kernel module.
+
+To do:
+
+	0. Create an xcode development environment
+	   Status: Done.
+
+	1. Import everything into CVS.
+	   Status: Not initiated
+
+	2. Change the "struct thread" construct to a execenv_t type that may be used on both BSD
+	   and Darwin. In teality, Darwin uses "struct proc *" as a handle to the execution
+	   environment, while FreeBSD uses "struct thread". By defining a separate type, the
+	   textual difference in this respect may be kept at a minimum.
+	   Status: Not initiated
+
+	3. Write a KEXT start/stop routine.
+	   Status: Not initiated
+
+	4. Create #defines that modifies BSD constructs into Darwin constructs and put these
+	   defines in a separate file.
+	   Status: Not initiated
+
+	5. Add code that handles the Darwin ubc buffers.
+	   Status: Not initiated
+	   Status: Not initiated
+
+Porting notes:
