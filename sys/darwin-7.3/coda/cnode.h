@@ -101,7 +101,7 @@ extern int coda_nc_use;
 /*
  * Used to select debugging statements throughout the cfs code.
  */
-extern int codadebug;
+extern long long codadebug;
 extern int coda_nc_debug;
 extern int coda_printf_delay;
 extern int coda_vnop_print_entry;
