@@ -81,7 +81,7 @@ struct coda_op_stats coda_vfsopstats[CODA_VFSOPS_SIZE];
 #define MRAK_INT_GEN(op) (coda_vfsopstats[op].gen_intrn++)
 
 extern int coda_nc_initialized;     /* Set if cache has been initialized */
-extern int vc_nb_open(dev_t, int, int, struct thread *);
+extern int vc_nb_open(dev_t, int, int, THREAD *);
 
 int
 coda_vfsopstats_init(void)
@@ -110,7 +110,7 @@ coda_mount(vfsp, path, data, ndp, td)
     char *path;			/* path covered: ignored by the fs-layer */
     caddr_t data;		/* Need to define a data type for this in netbsd? */
     struct nameidata *ndp;	/* Clobber this to lookup the device name */
-    struct thread *td;
+    THREAD *td;
 {
     struct vnode *dvp;
     struct cnode *cp;
@@ -229,7 +229,7 @@ int
 coda_unmount(vfsp, mntflags, td)
     struct mount *vfsp;
     int mntflags;
-    struct thread *td;
+    THREAD *td;
 {
     struct coda_mntinfo *mi = vftomi(vfsp);
     int active, error = 0;
@@ -286,8 +286,8 @@ coda_root(vfsp, vpp)
     struct coda_mntinfo *mi = vftomi(vfsp);
     struct vnode **result;
     int error;
-    struct thread *td = curthread;    /* XXX - bnoble */
-    struct proc *p = td->td_proc;
+    THREAD *td = CURTHREAD;    /* XXX - bnoble */
+    struct proc *p = THREAD2PROC;
     CodaFid VFid;
     static const CodaFid invalfid = INVAL_FID;
  
@@ -380,7 +380,7 @@ int
 coda_start(mp, flags, td)
 	struct mount *mp;
 	int flags;
-	struct thread *td;
+	THREAD *td;
 {
 
 	/* XXX See coda_root(). */
@@ -395,7 +395,7 @@ int
 coda_nb_statfs(vfsp, sbp, td)
     register struct mount *vfsp;
     struct statfs *sbp;
-    struct thread *td;
+    THREAD *td;
 {
     ENTRY;
 /*  MARK_ENTRY(CODA_STATFS_STATS); */
@@ -435,7 +435,7 @@ coda_sync(vfsp, waitfor, cred, td)
     struct mount *vfsp;
     int    waitfor;
     struct ucred *cred;
-    struct thread *td;
+    THREAD *td;
 {
     ENTRY;
     MARK_ENTRY(CODA_SYNC_STATS);
@@ -460,8 +460,8 @@ coda_fhtovp(vfsp, fhp, nam, vpp, exflagsp, creadanonp)
     struct cfid *cfid = (struct cfid *)fhp;
     struct cnode *cp = 0;
     int error;
-    struct thread *td = curthread; /* XXX -mach */
-    struct proc *p = td->td_proc;
+    THREAD *td = CURTHREAD; /* XXX -mach */
+    struct proc *p = THREAD2PROC;
     CodaFid VFid;
     int vtype;
 
