@@ -97,7 +97,7 @@ int coda_pcatch = PCATCH;
 #endif
 
 #define ENTRY if(coda_psdev_print_entry) PRINTENTRY
-#define LEAVE if(coda_psdev_print_entry) PRINTLEAVE
+#define LEAVE if(coda_psdev_print_leave) PRINTLEAVE
 
 void vcodaattach(int n);
 
@@ -136,17 +136,27 @@ vc_nb_open(dev, flag, mode, td)
     ENTRY;
 
     if (minor(dev) >= NVCODA || minor(dev) < 0)
+    {
+	   LEAVE;
            return(ENXIO);
+    }
     if (!coda_nc_initialized)
     {
 	rv=coda_nc_init();
-        if(rv) return rv;
+        if(rv) 
+        {
+	    LEAVE;
+	    return rv;
+	}
     }
     
     
     vcp = &coda_mnttbl[minor(dev)].mi_vcomm;
     if (VC_OPEN(vcp))
+    {
+	LEAVE;
 	return(EBUSY);
+    }
     
     bzero(&(vcp->vc_selproc), sizeof (struct selinfo));
     INIT_QUEUE(vcp->vc_requests);
@@ -156,6 +166,7 @@ vc_nb_open(dev, flag, mode, td)
     coda_mnttbl[minor(dev)].mi_vfsp = NULL;
     coda_mnttbl[minor(dev)].mi_rootvp = NULL;
 
+    LEAVE;
     return(0);
 }
 
@@ -174,7 +185,10 @@ vc_nb_close (dev, flag, mode, td)
     ENTRY;
 
     if (minor(dev) >= NVCODA || minor(dev) < 0)
+    {
+	LEAVE;
 	return(ENXIO);
+    }
 
     mi = &coda_mnttbl[minor(dev)];
     vcp = &(mi->mi_vcomm);
@@ -191,6 +205,7 @@ vc_nb_close (dev, flag, mode, td)
     if (!mi->mi_rootvp) {
 	/* just a simple open/close w no mount */
 	MARK_VC_CLOSED(vcp);
+	LEAVE;
 	return 0;
     }
 
@@ -240,6 +255,7 @@ vc_nb_close (dev, flag, mode, td)
     if (err)
 	myprintf(("Error %d unmounting vfs in vcclose(%d)\n", 
 	           err, minor(dev)));
+    LEAVE;
     return 0;
 }
 
@@ -256,12 +272,18 @@ vc_nb_read(dev, uiop, flag)
     ENTRY;
 
     if (minor(dev) >= NVCODA || minor(dev) < 0)
+    {
+	LEAVE;
 	return(ENXIO);
+    }
     
     vcp = &coda_mnttbl[minor(dev)].mi_vcomm;
     /* Get message at head of request queue. */
     if (EMPTY(vcp->vc_requests))
+    {
+	LEAVE;
 	return(0);	/* Nothing to read */
+    }
     
     vmp = (struct vmsg *)GETNEXT(vcp->vc_requests);
     
@@ -288,12 +310,14 @@ vc_nb_read(dev, uiop, flag)
 		      vmp->vm_opcode, vmp->vm_unique));
 	CODA_FREE((caddr_t)vmp->vm_data, (u_int)VC_IN_NO_DATA);
 	CODA_FREE((caddr_t)vmp, (u_int)sizeof(struct vmsg));
+	LEAVE;
 	return(error);
     }
     
     vmp->vm_flags |= VM_READ;
     INSQUE(vmp->vm_chain, vcp->vc_replys);
     
+    LEAVE;
     return(error);
 }
 
@@ -314,8 +338,11 @@ vc_nb_write(dev, uiop, flag)
     ENTRY;
 
     if (minor(dev) >= NVCODA || minor(dev) < 0)
-	return(ENXIO);
-    
+    {
+        LEAVE;
+        return(ENXIO);
+    }
+
     vcp = &coda_mnttbl[minor(dev)].mi_vcomm;
     
     /* Peek at the opcode, unique without transfering the data. */
@@ -323,6 +350,7 @@ vc_nb_write(dev, uiop, flag)
     error = uiomove((caddr_t)buf, sizeof(int) * 2, uiop);
     if (error) {
 	myprintf(("vcwrite: error (%d) on uiomove\n", error));
+	LEAVE;
 	return(EINVAL);
     }
     
@@ -341,9 +369,11 @@ vc_nb_write(dev, uiop, flag)
 	if (error) {
 	    myprintf(("vcwrite: error (%d) on uiomove (Op %ld seq %ld)\n", 
 		      error, opcode, seq));
+	    LEAVE;
 	    return(EINVAL);
 	    }
 	
+	LEAVE;
 	return handleDownCall(opcode, &pbuf);
     }
     
@@ -359,6 +389,7 @@ vc_nb_write(dev, uiop, flag)
 	if (codadebug)
 	    myprintf(("vcwrite: msg (%ld, %ld) not found\n", opcode, seq));
 	
+	LEAVE;
 	return(ESRCH);
 	}
     
@@ -374,6 +405,7 @@ vc_nb_write(dev, uiop, flag)
 	myprintf(("vcwrite: more data than asked for (%d < %d)\n",
 		  vmp->vm_outSize, uiop->uio_resid));
 	wakeup(&vmp->vm_sleep); 	/* Notify caller of the error. */
+	LEAVE;
 	return(EINVAL);
     } 
     
@@ -383,6 +415,7 @@ vc_nb_write(dev, uiop, flag)
     if (error) {
 	myprintf(("vcwrite: error (%d) on uiomove (op %ld seq %ld)\n", 
 		  error, opcode, seq));
+	LEAVE;
 	return(EINVAL);
     }
     
@@ -394,6 +427,7 @@ vc_nb_write(dev, uiop, flag)
     vmp->vm_flags |= VM_WRITE;
     wakeup(&vmp->vm_sleep);
     
+    LEAVE;
     return(0);
 }
 
@@ -410,22 +444,27 @@ vc_nb_ioctl(dev, cmd, addr, flag, td)
     switch(cmd) {
     case CODARESIZE: {
 	struct coda_resize *data = (struct coda_resize *)addr;
+	LEAVE;
 	return(coda_nc_resize(data->hashsize, data->heapsize, IS_DOWNCALL));
 	break;
     }
     case CODASTATS:
 	if (coda_nc_use) {
 	    coda_nc_gather_stats();
+	    LEAVE;
 	    return(0);
 	} else {
+	    LEAVE;
 	    return(ENODEV);
 	}
 	break;
     case CODAPRINT:
 	if (coda_nc_use) {
 	    print_coda_nc();
+	    LEAVE;
 	    return(0);
 	} else {
+	    LEAVE;
 	    return(ENODEV);
 	}
 	break;
@@ -433,19 +472,26 @@ vc_nb_ioctl(dev, cmd, addr, flag, td)
 	switch (*(u_int *)addr) {
 	case 0:
 		*(u_int *)addr = coda_kernel_version;
+	    LEAVE;
 		return 0;
 		break;
 	case 1:
 	case 2:
 		if (coda_kernel_version != *(u_int *)addr)
+		{
+		    LEAVE;
 		    return ENOENT;
+		}
 		else
+		    LEAVE;
 		    return 0;
 	default:
+		LEAVE;
 		return ENOENT;
 	}
     	break;
     default :
+	LEAVE;
 	return(EINVAL);
 	break;
     }
@@ -463,19 +509,29 @@ vc_nb_poll(dev, events, td)
     ENTRY;
     
     if (minor(dev) >= NVCODA || minor(dev) < 0)
-	return(ENXIO);
-    
+    {
+        LEAVE;
+        return(ENXIO);
+    }
+
     vcp = &coda_mnttbl[minor(dev)].mi_vcomm;
     
     event_msk = events & (POLLIN|POLLRDNORM);
     if (!event_msk)
+    {
+	LEAVE;
 	return(0);
+    }
     
     if (!EMPTY(vcp->vc_requests))
+    {
+	LEAVE;
 	return(events & (POLLIN|POLLRDNORM));
+    }
 
     selrecord(td, &(vcp->vc_selproc));
     
+    LEAVE;
     return(0);
 }
 
@@ -489,18 +545,28 @@ vc_nb_select(dev_t dev, int flag, void *wql, struct proc *p)
     ENTRY;
     
     if (minor(dev) >= NVCODA || minor(dev) < 0)
+    {
+        LEAVE;
         return(ENXIO);
-    
+    }
+
     vcp = &coda_mnttbl[minor(dev)].mi_vcomm;
     
     if (flag != FREAD)
+    {
+	LEAVE;
         return(0);
+    }
     
     if (!EMPTY(vcp->vc_requests))
+    {
+	LEAVE;
         return(1);
+    }
     
     selrecord(p, &(vcp->vc_selproc), wql);
     
+    LEAVE;
     return(0);
 }
 
