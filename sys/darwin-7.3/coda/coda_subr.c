@@ -224,7 +224,7 @@ coda_kill(whoIam, dcstat)
 		for (cp = coda_cache[hash]; cp != NULL; cp = CNODE_NEXT(cp)) {
 			if (CTOV(cp)->v_mount == whoIam) {
 #ifdef	DEBUG
-				printf("coda_kill: vp %p, cp %p\n", CTOV(cp), cp);
+				myprintf(("coda_kill: vp %p, cp %p\n", CTOV(cp), cp));
 #endif
 				count++;
 				CODADEBUG(CODA_FLUSH, 
@@ -299,7 +299,7 @@ coda_unmounting(whoIam)
 		for (cp = coda_cache[hash]; cp != NULL; cp = CNODE_NEXT(cp)) {
 			if (CTOV(cp)->v_mount == whoIam) {
 				if (cp->c_flags & (C_LOCKED|C_WANTED)) {
-					printf("coda_unmounting: Unlocking %p\n", cp);
+					myprintf(("coda_unmounting: Unlocking %p\n", cp));
 					cp->c_flags &= ~(C_LOCKED|C_WANTED);
 					wakeup((caddr_t) cp);
 				}
@@ -332,7 +332,7 @@ coda_checkunmounting(mp)
 		count++;
 		if (!(cp->c_flags & C_UNMOUNTING)) {
 			bad++;
-			printf("vp %p, cp %p missed\n", vp, cp);
+			myprintf(("vp %p, cp %p missed\n", vp, cp));
 			cp->c_flags |= C_UNMOUNTING;
 		}
 		VI_UNLOCK(vp);
@@ -348,21 +348,21 @@ coda_cacheprint(whoIam)
 	struct cnode *cp;
 	int count = 0;
 
-	printf("coda_cacheprint: coda_ctlvp %p, cp %p", coda_ctlvp, VTOC(coda_ctlvp));
+	myprintf(("coda_cacheprint: coda_ctlvp %p, cp %p", coda_ctlvp, VTOC(coda_ctlvp)));
 	coda_nc_name(VTOC(coda_ctlvp));
-	printf("\n");
+	myprintf(("\n"));
 
 	for (hash = 0; hash < CODA_CACHESIZE; hash++) {
 		for (cp = coda_cache[hash]; cp != NULL; cp = CNODE_NEXT(cp)) {
 			if (CTOV(cp)->v_mount == whoIam) {
-				printf("coda_cacheprint: vp %p, cp %p(%s)", CTOV(cp), cp, GET_CNODE_NAME);
+				myprintf(("coda_cacheprint: vp %p, cp %p(%s)", CTOV(cp), cp, GET_CNODE_NAME));
 				coda_nc_name(cp);
-				printf("\n");
+				myprintf(("\n"));
 				count++;
 			}
 		}
 	}
-	printf("coda_cacheprint: count %d\n", count);
+	myprintf(("coda_cacheprint: count %d\n", count));
 }
 #endif
 
