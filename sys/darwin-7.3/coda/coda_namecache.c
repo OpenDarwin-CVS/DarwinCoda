@@ -135,6 +135,12 @@ static void coda_nc_remove(struct coda_cache *cncp, enum dc_status dcstat);
 
 int coda_nc_initialized = 0;      /* Initially the cache has not been initialized */
 
+extern int coda_vnop_print_entry;
+
+#define ENTRY  if(coda_vnop_print_entry) PRINTENTRY
+#define LEAVE  if(coda_vnop_print_entry) PRINTLEAVE
+
+
 int
 coda_nc_init(void)
 {
@@ -142,15 +148,25 @@ coda_nc_init(void)
 
     /* zero the statistics structure */
     
+    ENTRY;
+    
     bzero(&coda_nc_stat, (sizeof(struct coda_nc_statistics)));
 
 #ifdef	CODA_VERBOSE
     printf("CODA NAME CACHE: CACHE %d, HASH TBL %d\n", CODA_NC_CACHESIZE, CODA_NC_HASHSIZE);
 #endif
     CODA_ALLOC(coda_nc_heap, struct coda_cache *, TOTAL_CACHE_SIZE);
-    if(coda_nc_heap==0) return ENOMEM;
+    if(coda_nc_heap==0) 
+    {
+        LEAVE;
+        return ENOMEM;
+    }
     CODA_ALLOC(coda_nc_hash, struct coda_hash *, TOTAL_HASH_SIZE);
-    if(coda_nc_hash==0) return ENOMEM;
+    if(coda_nc_hash==0) 
+    {
+        LEAVE;
+        return ENOMEM;
+    }
   
 
     
@@ -169,7 +185,8 @@ coda_nc_init(void)
     }
     
     coda_nc_initialized++;
-return 0;
+    LEAVE;
+    return 0;
 }
 
 /*
@@ -190,6 +207,7 @@ coda_nc_find(dcp, name, namelen, cred, hash)
 	 */
 	struct coda_cache *cncp;
 	int count = 1;
+        ENTRY;
 
 	CODA_NC_DEBUG(CODA_NC_FIND, 
 		    myprintf(("coda_nc_find(dcp %p, name %s, len %d, cred %p, hash %d\n",
@@ -205,6 +223,7 @@ coda_nc_find(dcp, name, namelen, cred, hash)
 	    { 
 		/* compare cr_uid instead */
 		coda_nc_stat.Search_len += count;
+                LEAVE;
 		return(cncp);
 	    }
 #ifdef	DEBUG
@@ -219,7 +238,7 @@ coda_nc_find(dcp, name, namelen, cred, hash)
 	    }
 #endif
 	}
-
+        LEAVE;
 	return((struct coda_cache *)0);
 }
 
@@ -238,8 +257,13 @@ coda_nc_enter(dcp, name, namelen, cred, cp)
     struct coda_cache *cncp;
     int hash;
     
-    if (coda_nc_use == 0)			/* Cache is off */
+    ENTRY;
+    if (coda_nc_use == 0)
+    {
+        /* Cache is off */
+        LEAVE;
 	return;
+    }
     
     CODA_NC_DEBUG(CODA_NC_ENTER, 
 		myprintf(("Enter: dcp %p cp %p name %s cred %p \n",
@@ -249,6 +273,7 @@ coda_nc_enter(dcp, name, namelen, cred, cp)
 	CODA_NC_DEBUG(CODA_NC_ENTER, 
 		    myprintf(("long name enter %s\n",name));)
 	    coda_nc_stat.long_name_enters++;	/* record stats */
+        LEAVE;
 	return;
     }
     
@@ -256,6 +281,7 @@ coda_nc_enter(dcp, name, namelen, cred, cp)
     cncp = coda_nc_find(dcp, name, namelen, cred, hash);
     if (cncp != (struct coda_cache *) 0) {	
 	coda_nc_stat.dbl_enters++;		/* duplicate entry */
+        LEAVE;
 	return;
     }
     
@@ -303,6 +329,7 @@ coda_nc_enter(dcp, name, namelen, cred, cp)
     coda_nc_hash[hash].length++;                      /* Used for tuning */
     
     CODA_NC_DEBUG(CODA_NC_PRINTCODA_NC, print_coda_nc(); )
+    LEAVE;
 }
 
 /*
@@ -318,15 +345,22 @@ coda_nc_lookup(dcp, name, namelen, cred)
 {
 	int hash;
 	struct coda_cache *cncp;
+        
+        ENTRY;
 
 	if (coda_nc_use == 0)			/* Cache is off */
-		return((struct cnode *) 0);
+        {
+            LEAVE;  
+            return((struct cnode *) 0);
+        }
 
-	if (namelen > CODA_NC_NAMELEN) {
-	        CODA_NC_DEBUG(CODA_NC_LOOKUP, 
-			    myprintf(("long name lookup %s\n",name));)
-		coda_nc_stat.long_name_lookups++;		/* record stats */
-		return((struct cnode *) 0);
+	if (namelen > CODA_NC_NAMELEN) 
+        {
+            CODA_NC_DEBUG(CODA_NC_LOOKUP, 
+                          myprintf(("long name lookup %s\n",name));)
+            coda_nc_stat.long_name_lookups++;		/* record stats */
+            LEAVE;
+            return((struct cnode *) 0);
 	}
 
 	/* Use the hash function to locate the starting point,
@@ -337,8 +371,9 @@ coda_nc_lookup(dcp, name, namelen, cred)
 	hash = CODA_NC_HASH(name, namelen, dcp);
 	cncp = coda_nc_find(dcp, name, namelen, cred, hash);
 	if (cncp == (struct coda_cache *) 0) {
-		coda_nc_stat.misses++;			/* record miss */
-		return((struct cnode *) 0);
+            coda_nc_stat.misses++;			/* record miss */
+            LEAVE;
+            return((struct cnode *) 0);
 	}
 
 	coda_nc_stat.hits++;
@@ -356,6 +391,7 @@ coda_nc_lookup(dcp, name, namelen, cred)
 		printf("lookup: dcp %p, name %s, cred %p = cp %p\n",
 			dcp, name, cred, cncp->cp); )
 
+        LEAVE;
 	return(cncp->cp);
 }
 
@@ -364,34 +400,36 @@ coda_nc_remove(cncp, dcstat)
 	struct coda_cache *cncp;
 	enum dc_status dcstat;
 {
-	/* 
-	 * remove an entry -- vrele(cncp->dcp, cp), crfree(cred),
-	 * remove it from it's hash chain, and
-	 * place it at the head of the lru list.
-	 */
-        CODA_NC_DEBUG(CODA_NC_REMOVE,
-		    myprintf(("coda_nc_remove %s from parent %s\n",
-			      cncp->name, coda_f2s(&cncp->dcp->c_fid))); )	
+    /* 
+     * remove an entry -- vrele(cncp->dcp, cp), crfree(cred),
+     * remove it from it's hash chain, and
+     * place it at the head of the lru list.
+     */
+    ENTRY;
+    CODA_NC_DEBUG(CODA_NC_REMOVE,
+                  myprintf(("coda_nc_remove %s from parent %s\n",
+                            cncp->name, coda_f2s(&cncp->dcp->c_fid))); )	
   	CODA_NC_HSHREM(cncp);
-
-	CODA_NC_HSHNUL(cncp);		/* have it be a null chain */
-	if ((dcstat == IS_DOWNCALL) && (vrefcnt(CTOV(cncp->dcp)) == 1)) {
-		cncp->dcp->c_flags |= C_PURGING;
-	}
-	vrele(CTOV(cncp->dcp)); 
-
-	if ((dcstat == IS_DOWNCALL) && (vrefcnt(CTOV(cncp->cp)) == 1)) {
-		cncp->cp->c_flags |= C_PURGING;
-	}
-	vrele(CTOV(cncp->cp)); 
-
-	crfree(cncp->cred); 
-	bzero(DATA_PART(cncp),DATA_SIZE);
-
-	/* Put the null entry just after the least-recently-used entry */
-	/* LRU_TOP adjusts the pointer to point to the top of the structure. */
-	CODA_NC_LRUREM(cncp);
-	CODA_NC_LRUINS(cncp, LRU_TOP(coda_nc_lru.lru_prev));
+    
+    CODA_NC_HSHNUL(cncp);		/* have it be a null chain */
+    if ((dcstat == IS_DOWNCALL) && (vrefcnt(CTOV(cncp->dcp)) == 1)) {
+        cncp->dcp->c_flags |= C_PURGING;
+    }
+    vrele(CTOV(cncp->dcp)); 
+    
+    if ((dcstat == IS_DOWNCALL) && (vrefcnt(CTOV(cncp->cp)) == 1)) {
+        cncp->cp->c_flags |= C_PURGING;
+    }
+    vrele(CTOV(cncp->cp)); 
+    
+    crfree(cncp->cred); 
+    bzero(DATA_PART(cncp),DATA_SIZE);
+    
+    /* Put the null entry just after the least-recently-used entry */
+    /* LRU_TOP adjusts the pointer to point to the top of the structure. */
+    CODA_NC_LRUREM(cncp);
+    CODA_NC_LRUINS(cncp, LRU_TOP(coda_nc_lru.lru_prev));
+    LEAVE;
 }
 
 /*
@@ -409,9 +447,14 @@ coda_nc_zapParentfid(fid, dcstat)
 	 */
 	struct coda_cache *cncp, *ncncp;
 	int i;
+        
+        ENTRY;
 
 	if (coda_nc_use == 0)			/* Cache is off */
-		return;	
+        {
+            LEAVE;
+            return;	
+        }
 
 	CODA_NC_DEBUG(CODA_NC_ZAPPFID, 
 		      myprintf(("ZapParent: fid %s\n", coda_f2s(fid))); )
@@ -435,6 +478,7 @@ coda_nc_zapParentfid(fid, dcstat)
 			}
 		}
 	}
+        LEAVE;
 }
 
 
@@ -452,8 +496,13 @@ coda_nc_zapfid(fid, dcstat)
 	struct coda_cache *cncp, *ncncp;
 	int i;
 
+        ENTRY;
+        
 	if (coda_nc_use == 0)			/* Cache is off */
-		return;
+        {
+            LEAVE;
+            return;
+        }
 
 	CODA_NC_DEBUG(CODA_NC_ZAPFID, 
 		      myprintf(("Zapfid: fid %s\n", coda_f2s(fid))); )
@@ -471,6 +520,7 @@ coda_nc_zapfid(fid, dcstat)
 			}
 		}
 	}
+        LEAVE;
 }
 
 /* 
@@ -478,24 +528,25 @@ coda_nc_zapfid(fid, dcstat)
  */
 void
 coda_nc_zapvnode(fid, cred, dcstat)	
-	CodaFid *fid;
-	struct ucred *cred;
-	enum dc_status dcstat;
+CodaFid *fid;
+struct ucred *cred;
+enum dc_status dcstat;
 {
-	/* See comment for zapfid. I don't think that one would ever
+    /* See comment for zapfid. I don't think that one would ever
 	   want to zap a file with a specific cred from the kernel.
 	   We'll leave this one unimplemented.
-	 */
-
-	if (coda_nc_use == 0)			/* Cache is off */
-		return;
-
-	CODA_NC_DEBUG(CODA_NC_ZAPVNODE,
-		      myprintf(("Zapvnode: fid %s cred %p\n",
-				coda_f2s(fid), cred)); )
-
- 
-
+    */
+    ENTRY;
+    if (coda_nc_use == 0)			/* Cache is off */
+    {
+        LEAVE;
+        return;
+    }
+    
+    CODA_NC_DEBUG(CODA_NC_ZAPVNODE,
+                  myprintf(("Zapvnode: fid %s cred %p\n",
+                            coda_f2s(fid), cred)); )
+        
 }
 
 /*
@@ -503,39 +554,46 @@ coda_nc_zapvnode(fid, cred, dcstat)
  */
 void
 coda_nc_zapfile(dcp, name, namelen)
-	struct cnode *dcp;
-	const char *name;
-	int namelen;
+struct cnode *dcp;
+const char *name;
+int namelen;
 {
-	/* use the hash function to locate the file, then zap all
- 	   entries of it regardless of the cred.
-	 */
-	struct coda_cache *cncp;
-	int hash;
-
-	if (coda_nc_use == 0)			/* Cache is off */
-		return;
-
-	CODA_NC_DEBUG(CODA_NC_ZAPFILE, 
-		myprintf(("Zapfile: dcp %p name %s \n",
-			  dcp, name)); )
-
-	if (namelen > CODA_NC_NAMELEN) {
-		coda_nc_stat.long_remove++;		/* record stats */
-		return;
-	}
-
-	coda_nc_stat.zapFile++;
-
-	hash = CODA_NC_HASH(name, namelen, dcp);
-	cncp = coda_nc_find(dcp, name, namelen, 0, hash);
-
-	while (cncp) {
-	  coda_nc_hash[hash].length--;                 /* Used for tuning */
-
-	  coda_nc_remove(cncp, NOT_DOWNCALL);
-	  cncp = coda_nc_find(dcp, name, namelen, 0, hash);
-	}
+    /* use the hash function to locate the file, then zap all
+    entries of it regardless of the cred.
+    */
+    struct coda_cache *cncp;
+    int hash;
+    
+    ENTRY;
+    
+    if (coda_nc_use == 0)			/* Cache is off */
+    {
+        LEAVE;
+        return;
+    }
+    
+    CODA_NC_DEBUG(CODA_NC_ZAPFILE, 
+                  myprintf(("Zapfile: dcp %p name %s \n",
+                            dcp, name)); )
+        
+    if (namelen > CODA_NC_NAMELEN) {
+        coda_nc_stat.long_remove++;		/* record stats */
+        LEAVE;
+        return;
+    }
+    
+    coda_nc_stat.zapFile++;
+    
+    hash = CODA_NC_HASH(name, namelen, dcp);
+    cncp = coda_nc_find(dcp, name, namelen, 0, hash);
+    
+    while (cncp) {
+        coda_nc_hash[hash].length--;                 /* Used for tuning */
+        
+        coda_nc_remove(cncp, NOT_DOWNCALL);
+        cncp = coda_nc_find(dcp, name, namelen, 0, hash);
+    }
+    LEAVE;
 }
 
 /* 
@@ -557,9 +615,14 @@ coda_nc_purge_user(uid, dcstat)
 
 	struct coda_cache *cncp, *ncncp;
 	int hash;
+        
+        ENTRY;
 
 	if (coda_nc_use == 0)			/* Cache is off */
-		return;
+        {
+            LEAVE;
+            return;
+        }
 
 	CODA_NC_DEBUG(CODA_NC_PURGEUSER, 
 		myprintf(("ZapDude: uid %x\n", uid)); )
@@ -581,6 +644,7 @@ coda_nc_purge_user(uid, dcstat)
 			coda_nc_remove(cncp, dcstat); 
 		}
 	}
+        LEAVE;
 }
 
 /*
@@ -603,9 +667,14 @@ coda_nc_flush(dcstat)
 	 */
 	struct coda_cache *cncp;
 	int i;
+        
+        ENTRY;
 
 	if (coda_nc_use == 0)			/* Cache is off */
-		return;
+        {
+            LEAVE;
+            return;
+        }
 
 	coda_nc_stat.Flushes++;
 
@@ -645,6 +714,7 @@ coda_nc_flush(dcstat)
 
 	for (i = 0; i < coda_nc_hashsize; i++)
 	  coda_nc_hash[i].length = 0;
+        LEAVE;
 }
 
 /*
@@ -677,39 +747,42 @@ void
 coda_nc_gather_stats(void)
 {
     int i, max = 0, sum = 0, temp, zeros = 0, ave, n;
-
-	for (i = 0; i < coda_nc_hashsize; i++) {
-	  if (coda_nc_hash[i].length) {
+    
+    ENTRY;
+    
+    for (i = 0; i < coda_nc_hashsize; i++) {
+        if (coda_nc_hash[i].length) {
 	    sum += coda_nc_hash[i].length;
-	  } else {
+        } else {
 	    zeros++;
-	  }
-
-	  if (coda_nc_hash[i].length > max)
+        }
+        
+        if (coda_nc_hash[i].length > max)
 	    max = coda_nc_hash[i].length;
-	}
-
-	/*
-	 * When computing the Arithmetic mean, only count slots which 
-	 * are not empty in the distribution.
-	 */
-        coda_nc_stat.Sum_bucket_len = sum;
-        coda_nc_stat.Num_zero_len = zeros;
-        coda_nc_stat.Max_bucket_len = max;
-
-	if ((n = coda_nc_hashsize - zeros) > 0) 
-	  ave = sum / n;
-	else
-	  ave = 0;
-
-	sum = 0;
-	for (i = 0; i < coda_nc_hashsize; i++) {
-	  if (coda_nc_hash[i].length) {
+    }
+    
+    /*
+     * When computing the Arithmetic mean, only count slots which 
+     * are not empty in the distribution.
+     */
+    coda_nc_stat.Sum_bucket_len = sum;
+    coda_nc_stat.Num_zero_len = zeros;
+    coda_nc_stat.Max_bucket_len = max;
+    
+    if ((n = coda_nc_hashsize - zeros) > 0) 
+        ave = sum / n;
+    else
+        ave = 0;
+    
+    sum = 0;
+    for (i = 0; i < coda_nc_hashsize; i++) {
+        if (coda_nc_hash[i].length) {
 	    temp = coda_nc_hash[i].length - ave;
 	    sum += temp * temp;
-	  }
-	}
-        coda_nc_stat.Sum2_bucket_len = sum;
+        }
+    }
+    coda_nc_stat.Sum2_bucket_len = sum;
+    LEAVE;
 }
 
 /*
@@ -723,7 +796,11 @@ coda_nc_resize(hashsize, heapsize, dcstat)
      int hashsize, heapsize;
      enum dc_status dcstat;
 {
-    if ((hashsize % 2) || (heapsize % 2)) { /* Illegal hash or cache sizes */
+    ENTRY;
+    
+    if ((hashsize % 2) || (heapsize % 2)) 
+    { /* Illegal hash or cache sizes */
+        LEAVE;
 	return(EINVAL);
     }                 
     
@@ -741,6 +818,7 @@ coda_nc_resize(hashsize, heapsize, dcstat)
     coda_nc_init();                        /* Set up a cache with the new size */
     
     coda_nc_use = 1;                       /* Turn the cache back on */
+    LEAVE;  
     return(0);
 }
 
@@ -752,9 +830,14 @@ coda_nc_name(struct cnode *cp)
 {
 	struct coda_cache *cncp, *ncncp;
 	int i;
+        
+        ENTRY;
 
 	if (coda_nc_use == 0)			/* Cache is off */
+        {
+            LEAVE;
 		return;
+        }
 
 	for (i = 0; i < coda_nc_hashsize; i++) {
 		for (cncp = coda_nc_hash[i].hash_next; 
@@ -770,5 +853,6 @@ coda_nc_name(struct cnode *cp)
 
 		}
 	}
+        LEAVE;
 }
 #endif
