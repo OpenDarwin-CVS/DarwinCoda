@@ -141,6 +141,7 @@ struct cnode {
 };
 #define	VTOC(vp)	((struct cnode *)(vp)->v_data)
 #define	CTOV(cp)	((struct vnode *)((cp)->c_vnode))
+
 #ifdef CNODE_NAME_DEBUG
 #define SET_CNODE_NAME(x) { strncpy(cp->c_name,x,32); cp->c_name[31]='\0'; }
 #define GET_CNODE_NAME cp->c_name
@@ -243,10 +244,16 @@ extern struct mount *devtomp(dev_t dev);
 extern void 
 coda_assure_lock(struct vnode *vp, int locktype, int line, const char *func);
 
+#define ASSURE_LOCKS
+#ifdef ASSURE_LOCKS
 #define ASSURE_LOCKED(v) coda_assure_lock(v,LK_EXCLUSIVE,__LINE__,__func__);
 #define ASSURE_LOCKED_TYPE(v,t) coda_assure_lock(v,t,__LINE__,__func__);
 #define ASSURE_UNLOCKED(v) coda_assure_lock(v,0,__LINE__,__func__);
-
+#else
+#define ASSURE_LOCKED(v)
+#define ASSURE_LOCKED_TYPE(v,t)
+#define ASSURE_UNLOCKED(v)
+#endif
 
 #endif	/* _CNODE_H_ */
 
