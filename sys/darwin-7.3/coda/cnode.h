@@ -49,9 +49,15 @@
 
 #include <sys/vnode.h>
 #include <sys/lock.h>
+#ifdef DARWIN
+#include <mach/clock.h>
+#else /* !DARWIN */
 #include <machine/clock.h>
+#endif /* !DARWIN */
 
+#ifndef DARWIN
 MALLOC_DECLARE(M_CODA);
+#endif /* !DARWIN */
 
 /*
  * tmp below since we need struct queue
@@ -63,7 +69,18 @@ MALLOC_DECLARE(M_CODA);
  * NOTE: CODA_CACHESIZE must be a power of 2 for cfshash to work!
  */
 #define CODA_CACHESIZE 512
+#ifdef DARWIN
+#define CODA_ALLOC(ptr, cast, size)                                        \
+do {                                                                      \
+    MALLOC(ptr, cast, size, M_FREE, M_NOWAIT);            \
+    if (ptr == 0) {                                                       \
+        panic("kernel malloc returns 0 at %s:%d\n", __FILE__, __LINE__);  \
+    }                                                                     \
+} while (0)
 
+#define CODA_FREE(ptr, size)  FREE(ptr, M_FREE)
+
+#else /* !DARWIN */
 #define CODA_ALLOC(ptr, cast, size)                                        \
 do {                                                                      \
     ptr = (cast)malloc((unsigned long) size, M_CODA, M_WAITOK);            \
@@ -73,6 +90,8 @@ do {                                                                      \
 } while (0)
 
 #define CODA_FREE(ptr, size)  free((ptr), M_CODA)
+
+#endif /* !DARWIN */
 
 /*
  * global cache state control
@@ -102,7 +121,11 @@ struct cnode {
     struct vnode	*c_vnode;
     u_short		 c_flags;	/* flags (see below) */
     CodaFid		 c_fid;		/* file handle */
+#ifdef DARWIN
+    struct lock__bsd__   c_lock;
+#else /* !DARWIN */
     struct lock		 c_lock;	/* new lock protocol */
+#endif /* !DARWIN */
     struct vnode	*c_ovp;		/* open vnode pointer */
     u_short		 c_ocount;	/* count of openers */
     u_short		 c_owrite;	/* count of open for write */
