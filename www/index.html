@@ -87,6 +87,8 @@ The CVS repository can be browsed through <a href="http://www.opendarwin.org/cgi
 				sync</code></p>
 		<p><span id="bodytitle">Getting started</span></p>
 		<p>These instructions apply to darwin-7.3 (MacOS X Panther). You may have to fix bits and pieces on other platforms:</p>
+		<p>As for darwin 8.6 (MacOS X Tiger) A yet untested version is found in the darwin-8.6 directory. It compiles, links and loads
+but that's the only thing I know about it right now, except that the port between darwin7 and darwin8 was quite some work to do.</p>
 		<p>Starting Coda  requires a few steps.see <a href="building_coda.html">this document</a> for the details.</p>
 		<ol>
 			<li>Fetching, building and  installing ncurses and readline GNU libraries
@@ -102,7 +104,6 @@ The CVS repository can be browsed through <a href="http://www.opendarwin.org/cgi
 		
 		
 		</ol>
-		<p>A much simpler approach, however, is to load the ready-made coda package for MacOS X found at <a href="http://www.konvalo.org/?pagename=Main.Software">www.konvalo.org</a>. Running the script loads the userland coda and installs the necessary parts on a nonintrusive place on your disk.</p>
 		<p><span id="bodytitle">Handling system updates</span></p>
 		<p>At times, Apple updates MacOS, this usually also updates Darwin. You will have to edit the <tt>Info.plist</tt> and bump the <tt>com.apple.kernel</tt> value.</p>
 
