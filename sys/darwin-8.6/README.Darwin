@@ -1,0 +1,69 @@
+NOTE on the darwin 8.6 version.
+
+This is as of now an untested version for Darwin 8.6. This means that it has NOT EVER been tested, except that it
+has been loaded into the kernel of a MacOS 10.4 (PPC) system successfully ONCE!!
+
+...............
+
+This README file relates to the Darwin port of the FreeBSD kernel module.
+
+To do:
+
+	0. Create an xcode development environment
+	   Status: Done.
+
+	1. Import everything into CVS.
+	   Status: Done
+
+	2. Change the "struct thread" construct to a execenv_t type that may be used on both BSD
+	   and Darwin. In teality, Darwin uses "struct proc *" as a handle to the execution
+	   environment, while FreeBSD uses "struct thread". By defining a separate type, the
+	   textual difference in this respect may be kept at a minimum.
+	   Status: Done, but implemented as a macro instead of a typedef.
+
+	3. Write a KEXT start/stop routine.
+	   Status: Done
+
+	4. Create #defines that modifies BSD constructs into Darwin constructs and put these
+	   defines in a separate file.
+	   Status: Done
+
+	5. Add code that handles the Darwin ubc buffers.
+	   Status: Done
+           
+        6. Try out locking on:
+        
+            - Lookup - Done
+            - Open - Done
+            - Close - Done
+            - Read - Done
+            - Create - Done
+            - Write - Done
+            - remove - Done
+            - rmdir - Done
+            - link - Not tested
+            - symlink - Not tested
+            - rename - Not tested
+            
+            For each of these ops, it should be possible to ls -l the containing directory without anything hanging, and it should be possible to close down venus such that the venus process really dies afterwards.
+            
+        7. Stress test things, preferably on a dual processor machine.
+            Status: Not initiated.
+            
+        8. Write support for getattrlist(2)
+           Status: Initiated, but nothing more than that.
+            
+
+Milestones:
+At each milestone achieved, Check in all changes to CVS and set a tag.
+
+	6. The kext survives the starting of venus.
+	   Status: OK. (Well, now it is)
+	7. The welcome file at /coda/testserver.coda.cs.cmu.edu/Welcome can be read.
+	   Status: Not tested.
+	8. When a file can be written into /coda/testserver.coda.cs.cmu.edu/Welcome/playground.
+	   Status: OK.
+	9. When things work at normal speed.
+	   Status: OK.
+       10. When disconnected mode works.
+	   Status: OK.
